@@ -51,45 +51,85 @@
         );
       });
 
+      // Transform bare specifier imports to esm.sh CDN URLs
+      // e.g. `import * as d3 from 'd3'` → `import * as d3 from 'https://esm.sh/d3'`
+      function transformImports(code) {
+        return code
+          .replace(
+            /from\s+['"](?!https?:\/\/|\.\/|\.\.\/)([\w@][^'"]*)['"]/g,
+            "from 'https://esm.sh/$1'"
+          )
+          .replace(
+            /^import\s+['"](?!https?:\/\/|\.\/|\.\.\/)([\w@][^'"]*)['"]/gm,
+            "import 'https://esm.sh/$1'"
+          );
+      }
+
+      // Reset the #container DOM between runs
+      function resetContainer() {
+        var old = document.getElementById('container');
+        var fresh = document.createElement('div');
+        fresh.id = 'container';
+        fresh.style.cssText = 'width:100%;min-height:100vh;padding:16px;';
+        if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
+      }
+
+      // Main run handler — async so we can await import()
+      async function handleRunCode(data) {
+        var exampleId = data.exampleId;
+        var libraryCode = data.libraryCode;
+        var exampleCode = data.exampleCode;
+
+        currentExampleId = exampleId;
+        resetContainer();
+
+        // 1. Transform bare imports → esm.sh URLs
+        var transformed = transformImports(libraryCode);
+
+        // 2. Load library as ES module via blob URL
+        var libBlob = new Blob([transformed], { type: 'text/javascript' });
+        var libUrl = URL.createObjectURL(libBlob);
+        var libModule;
+        try {
+          libModule = await import(libUrl);
+        } finally {
+          URL.revokeObjectURL(libUrl);
+        }
+
+        // 3. Expose all named exports as globals so example code can use them directly
+        Object.keys(libModule).forEach(function (key) {
+          if (key !== 'default') window[key] = libModule[key];
+        });
+        // Also expose default export by its function/class name if it has one
+        if (libModule.default && libModule.default.name) {
+          window[libModule.default.name] = libModule.default;
+        }
+
+        // 4. Run example code in async IIFE (top-level await supported)
+        var exampleFn = new Function(
+          'return (async function __specforge_example__() {\n' + exampleCode + '\n})()'
+        );
+        await exampleFn();
+      }
+
       // Message receiver
       window.addEventListener('message', function (event) {
         if (!event.data || event.data.type !== 'RUN_CODE') return;
 
-        var exampleId = event.data.exampleId;
-        var libraryCode = event.data.libraryCode;
-        var exampleCode = event.data.exampleCode;
-
-        currentExampleId = exampleId;
-
-        // Reset DOM
-        var old = document.getElementById('container');
-        var fresh = document.createElement('div');
-        fresh.id = 'container';
-        fresh.style.width = '100%';
-        fresh.style.minHeight = '100vh';
-        fresh.style.padding = '16px';
-        if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
-
-        // Build and run combined code in async IIFE so top-level await works
-        var combined =
-          '(async function __specforge__() {\n' +
-          libraryCode + '\n' +
-          exampleCode + '\n' +
-          '})().then(function() {\n' +
-          '  window.parent.postMessage({ type: "RUN_RESULT", exampleId: ' + JSON.stringify(exampleId) + ', status: "pass", error: null }, "*");\n' +
-          '}).catch(function(err) {\n' +
-          '  window.parent.postMessage({ type: "RUN_RESULT", exampleId: ' + JSON.stringify(exampleId) + ', status: "fail", error: err && err.message ? err.message : String(err) }, "*");\n' +
-          '});';
-
-        try {
-          // eslint-disable-next-line no-new-func
-          new Function(combined)();
-        } catch (err) {
-          window.parent.postMessage(
-            { type: 'RUN_RESULT', exampleId: exampleId, status: 'fail', error: err && err.message ? err.message : String(err) },
-            '*'
-          );
-        }
+        var data = event.data;
+        handleRunCode(data)
+          .then(function () {
+            window.parent.postMessage(
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'pass', error: null },
+              '*'
+            );
+          })
+          .catch(function (err) {
+            window.parent.postMessage(
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'fail', error: err && err.message ? err.message : String(err) },
+              '*'
+            );
+          });
       });
     })();
   </script>
