@@ -31,7 +31,7 @@ export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.Me
 
   const currentLibraryBlock =
     currentLibraryCode.trim().length > 0
-      ? `\n\n### Current Library Code (update this to satisfy all examples)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
+      ? `\n\n### Current Library Code (you may use this as a reference, but remove anything not needed by the current examples)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
       : "";
 
   const refinementBlock =
