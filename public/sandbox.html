@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; font-family: sans-serif; }
+    #container { width: 100%; min-height: 100vh; padding: 16px; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    (function () {
+      'use strict';
+
+      var currentExampleId = null;
+
+      // Console interception
+      var LEVELS = ['log', 'warn', 'error', 'info'];
+      LEVELS.forEach(function (level) {
+        var original = console[level].bind(console);
+        console[level] = function () {
+          original.apply(console, arguments);
+          var args = Array.prototype.slice.call(arguments).map(function (a) {
+            try { return JSON.stringify(a); } catch (_) { return String(a); }
+          });
+          window.parent.postMessage(
+            { type: 'CONSOLE', exampleId: currentExampleId, level: level, args: args },
+            '*'
+          );
+        };
+      });
+
+      // Sync error interception
+      window.addEventListener('error', function (e) {
+        window.parent.postMessage(
+          { type: 'RUN_RESULT', exampleId: currentExampleId, status: 'fail', error: e.message || String(e) },
+          '*'
+        );
+      });
+
+      // Async error interception
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason || 'Unhandled rejection');
+        window.parent.postMessage(
+          { type: 'RUN_RESULT', exampleId: currentExampleId, status: 'fail', error: msg },
+          '*'
+        );
+      });
+
+      // Message receiver
+      window.addEventListener('message', function (event) {
+        if (!event.data || event.data.type !== 'RUN_CODE') return;
+
+        var exampleId = event.data.exampleId;
+        var libraryCode = event.data.libraryCode;
+        var exampleCode = event.data.exampleCode;
+
+        currentExampleId = exampleId;
+
+        // Reset DOM
+        var old = document.getElementById('container');
+        var fresh = document.createElement('div');
+        fresh.id = 'container';
+        fresh.style.width = '100%';
+        fresh.style.minHeight = '100vh';
+        fresh.style.padding = '16px';
+        if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
+
+        // Build and run combined code in async IIFE so top-level await works
+        var combined =
+          '(async function __specforge__() {\n' +
+          libraryCode + '\n' +
+          exampleCode + '\n' +
+          '})().then(function() {\n' +
+          '  window.parent.postMessage({ type: "RUN_RESULT", exampleId: ' + JSON.stringify(exampleId) + ', status: "pass", error: null }, "*");\n' +
+          '}).catch(function(err) {\n' +
+          '  window.parent.postMessage({ type: "RUN_RESULT", exampleId: ' + JSON.stringify(exampleId) + ', status: "fail", error: err && err.message ? err.message : String(err) }, "*");\n' +
+          '});';
+
+        try {
+          // eslint-disable-next-line no-new-func
+          new Function(combined)();
+        } catch (err) {
+          window.parent.postMessage(
+            { type: 'RUN_RESULT', exampleId: exampleId, status: 'fail', error: err && err.message ? err.message : String(err) },
+            '*'
+          );
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
