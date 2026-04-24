@@ -10,8 +10,9 @@ RULES:
 4. Do NOT assume any bundler, transpiler, or external dependencies. Use only browser-native APIs (DOM, Canvas, SVG, fetch, etc.).
 5. The #container element is always available in the DOM: document.getElementById('container').
 6. The library must make ALL provided examples work correctly and simultaneously.
-7. When fixing errors, address them precisely without breaking passing examples.
-8. Keep the library self-contained in a single file — no multi-file splits.`;
+7. Do NOT add features, classes, or functionality not demonstrated in the provided examples. Implement the minimum code needed to make the examples work — nothing more.
+8. When fixing errors, address them precisely without breaking passing examples.
+9. Keep the library self-contained in a single file — no multi-file splits.`;
 
 export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.MessageParam[] {
   const { examples, currentLibraryCode, refinementInstruction, failedExamples } = body;
@@ -30,7 +31,7 @@ export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.Me
 
   const currentLibraryBlock =
     currentLibraryCode.trim().length > 0
-      ? `\n\n### Current Library Code (update this to satisfy all examples)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
+      ? `\n\n### Current Library Code (you may use this as a reference, but remove anything not needed by the current examples)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
       : "";
 
   const refinementBlock =
