@@ -1,18 +1,18 @@
 import type { GenerateRequestBody } from "@/types";
 import type Anthropic from "@anthropic-ai/sdk";
 
-export const SYSTEM_PROMPT = `You are a JavaScript library code generator. Your ONLY job is to output the complete, working source code of a JavaScript library.
+export const SYSTEM_PROMPT = `You are a JavaScript library code generator. Your ONLY job is to output the complete, working source code of a JavaScript library as a single ES module file.
 
 RULES:
 1. Output ONLY valid JavaScript. No markdown, no code fences, no explanation, no preamble.
-2. The library runs in a browser <script> context. Do NOT use ES module import/export syntax.
-3. Define all exported symbols as globals using var/let/const/class/function declarations at the top level.
-4. Do NOT assume any bundler, transpiler, or external dependencies. Use only browser-native APIs (DOM, Canvas, SVG, fetch, etc.).
+2. Write the library as an ES module. Use \`import\` for dependencies and \`export\` for the public API.
+3. Use npm packages via bare specifier imports when they are the right tool (e.g. D3 for data viz, Three.js for 3D, GSAP for animation): \`import * as d3 from 'd3'\`. The runtime resolves them automatically. For simple tasks, use browser-native APIs.
+4. Always export the library's public API as named exports (e.g. \`export class BarChart\`, \`export function createChart\`).
 5. The #container element is always available in the DOM: document.getElementById('container').
 6. The library must make ALL provided examples work correctly and simultaneously.
 7. Do NOT add features, classes, or functionality not demonstrated in the provided examples. Implement the minimum code needed to make the examples work — nothing more.
 8. When fixing errors, address them precisely without breaking passing examples.
-9. Keep the library self-contained in a single file — no multi-file splits.`;
+9. Keep the library as a single file — no multi-file splits.`;
 
 export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.MessageParam[] {
   const { examples, currentLibraryCode, refinementInstruction, failedExamples } = body;
