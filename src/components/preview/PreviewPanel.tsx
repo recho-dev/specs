@@ -11,6 +11,7 @@ export default function PreviewPanel() {
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
+  const packageJson = useWorkbenchStore((s) => s.library.packageJson);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
   const appendConsoleLine = useWorkbenchStore((s) => s.appendConsoleLine);
   const clearConsoleOutput = useWorkbenchStore((s) => s.clearConsoleOutput);
@@ -73,6 +74,7 @@ export default function PreviewPanel() {
             exampleId={ex.id}
             exampleCode={ex.code}
             libraryCode={libraryCode}
+            packageJson={packageJson}
             isVisible={visibleId === ex.id}
           />
         ))}

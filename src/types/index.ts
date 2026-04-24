@@ -16,7 +16,8 @@ export interface Example {
 }
 
 export interface LibraryState {
-  code: string;
+  packageJson: string;
+  code: string;           // src/index.js
   isGenerating: boolean;
   generationError: string | null;
   streamBuffer: string;
@@ -26,6 +27,7 @@ export interface LibraryState {
 export interface RunCodeMessage {
   type: "RUN_CODE";
   exampleId: string;
+  packageJson: string;
   libraryCode: string;
   exampleCode: string;
 }
@@ -49,6 +51,7 @@ export type SandboxInboundMessage = RunResultMessage | ConsoleMessage;
 
 export interface GenerateRequestBody {
   examples: { name: string; code: string }[];
+  currentPackageJson: string;
   currentLibraryCode: string;
   refinementInstruction: string;
   failedExamples: { name: string; code: string; error: string }[];

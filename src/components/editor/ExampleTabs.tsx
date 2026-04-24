@@ -11,8 +11,8 @@ const STATUS_DOT: Record<Example["status"], string> = {
 
 interface Props {
   examples: Example[];
-  activeId: string | "library" | null;
-  onTabChange: (id: string | "library") => void;
+  activeId: string | "library" | "package.json" | null;
+  onTabChange: (id: string | "library" | "package.json") => void;
 }
 
 export default function ExampleTabs({ examples, activeId, onTabChange }: Props) {
@@ -40,7 +40,17 @@ export default function ExampleTabs({ examples, activeId, onTabChange }: Props) 
             : "border-transparent text-zinc-500 hover:text-zinc-300"
         }`}
       >
-        Library
+        src/index.js
+      </button>
+      <button
+        onClick={() => onTabChange("package.json")}
+        className={`flex items-center gap-1.5 px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
+          activeId === "package.json"
+            ? "border-indigo-500 text-white"
+            : "border-transparent text-zinc-500 hover:text-zinc-300"
+        }`}
+      >
+        package.json
       </button>
     </div>
   );

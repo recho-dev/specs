@@ -9,30 +9,38 @@ export default function EditorPanel() {
   const examples = useWorkbenchStore((s) => s.examples);
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
+  const viewingPackageJson = useWorkbenchStore((s) => s.viewingPackageJson);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
+  const packageJson = useWorkbenchStore((s) => s.library.packageJson);
   const streamBuffer = useWorkbenchStore((s) => s.library.streamBuffer);
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
   const generationError = useWorkbenchStore((s) => s.library.generationError);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
+  const setPackageJson = useWorkbenchStore((s) => s.setPackageJson);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setViewingLibrary = useWorkbenchStore((s) => s.setViewingLibrary);
+  const setViewingPackageJson = useWorkbenchStore((s) => s.setViewingPackageJson);
   const generate = useWorkbenchStore((s) => s.generate);
 
   const activeExample = examples.find((e) => e.id === activeExampleId) ?? null;
 
-  function handleTabChange(id: string | "library") {
+  function handleTabChange(id: string | "library" | "package.json") {
     if (id === "library") {
       setViewingLibrary(true);
+    } else if (id === "package.json") {
+      setViewingPackageJson(true);
     } else {
       setActiveExample(id);
     }
   }
 
-  const tabActiveId = viewingLibrary ? "library" : activeExampleId;
+  const tabActiveId = viewingLibrary ? "library" : viewingPackageJson ? "package.json" : activeExampleId;
 
   // What to show in the editor
   const editorValue = viewingLibrary
     ? (isGenerating ? streamBuffer : libraryCode)
+    : viewingPackageJson
+    ? packageJson
     : (activeExample?.code ?? "");
 
   return (
@@ -54,14 +62,17 @@ export default function EditorPanel() {
           </div>
         ) : (
           <CodeEditor
-            key={viewingLibrary ? "library" : activeExampleId ?? "empty"}
+            key={viewingLibrary ? "library" : viewingPackageJson ? "package.json" : activeExampleId ?? "empty"}
             value={editorValue}
             onChange={
-              !viewingLibrary && activeExampleId
+              viewingPackageJson
+                ? (v) => setPackageJson(v)
+                : !viewingLibrary && activeExampleId
                 ? (v) => setExampleCode(activeExampleId, v)
                 : undefined
             }
             readOnly={viewingLibrary}
+            language={viewingPackageJson ? "json" : "javascript"}
           />
         )}
       </div>

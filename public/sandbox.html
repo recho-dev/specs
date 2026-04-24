@@ -74,16 +74,23 @@
         if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
       }
 
+      // Get the package name from a package.json string
+      function getPackageName(packageJsonStr) {
+        try { return JSON.parse(packageJsonStr).name || 'my-library'; }
+        catch (_) { return 'my-library'; }
+      }
+
       // Main run handler — async so we can await import()
       async function handleRunCode(data) {
         var exampleId = data.exampleId;
         var libraryCode = data.libraryCode;
         var exampleCode = data.exampleCode;
+        var packageJsonStr = data.packageJson || '{"name":"my-library","version":"1.0.0"}';
 
         currentExampleId = exampleId;
         resetContainer();
 
-        // 1. Transform bare imports → esm.sh URLs
+        // 1. Transform bare imports in library → esm.sh URLs
         var transformed = transformImports(libraryCode);
 
         // 2. Load library as ES module via blob URL
@@ -105,9 +112,40 @@
           window[libModule.default.name] = libModule.default;
         }
 
-        // 4. Run example code in async IIFE (top-level await supported)
+        // 4. Transform example code: resolve package name imports to globals
+        //    e.g. `import { BarChart } from 'my-library'` → already-globals, just strip the import
+        //    We handle this by replacing `from '<package-name>'` with a re-export from a virtual module
+        //    Simpler: just strip those imports since all exports are already on window
+        var pkgName = getPackageName(packageJsonStr);
+        var pkgNameEscaped = pkgName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+        var transformedExample = exampleCode
+          .replace(
+            new RegExp("import\\s+\\{([^}]*)\\}\\s+from\\s+['\"]" + pkgNameEscaped + "['\"]", 'g'),
+            function (_, imports) {
+              // Convert `import { Foo, Bar } from 'pkg'` into `const { Foo, Bar } = window`
+              // so the names are in scope (they're already on window from step 3)
+              return 'const {' + imports + '} = window';
+            }
+          )
+          .replace(
+            new RegExp("import\\s+(\\w+)\\s+from\\s+['\"]" + pkgNameEscaped + "['\"]", 'g'),
+            function (_, name) {
+              return 'const ' + name + ' = window["' + name + '"]';
+            }
+          )
+          .replace(
+            new RegExp("import\\s+\\*\\s+as\\s+(\\w+)\\s+from\\s+['\"]" + pkgNameEscaped + "['\"]", 'g'),
+            function (_, ns) {
+              // namespace import — expose as object of all lib exports
+              var keys = Object.keys(libModule).filter(function(k) { return k !== 'default'; });
+              var entries = keys.map(function(k) { return '"' + k + '":window["' + k + '"]'; }).join(',');
+              return 'const ' + ns + ' = {' + entries + '}';
+            }
+          );
+
+        // 5. Run example code in async IIFE (top-level await supported)
         var exampleFn = new Function(
-          'return (async function __specforge_example__() {\n' + exampleCode + '\n})()'
+          'return (async function __specforge_example__() {\n' + transformedExample + '\n})()'
         );
         await exampleFn();
       }

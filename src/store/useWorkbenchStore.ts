@@ -5,7 +5,12 @@ import { immer } from "zustand/middleware/immer";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 import type { Example, LibraryState, ConsoleLine, GenerateRequestBody } from "@/types";
-import { extractCodeFromBuffer } from "@/lib/sandbox";
+import { parseLibraryOutput } from "@/lib/sandbox";
+
+const DEFAULT_PACKAGE_JSON = `{
+  "name": "my-library",
+  "version": "1.0.0"
+}`;
 
 const DEFAULT_EXAMPLE_CODE = `// Write how you want to use the library here
 // Example:
@@ -19,6 +24,7 @@ interface WorkbenchStore {
   library: LibraryState;
   activeExampleId: string | null;
   viewingLibrary: boolean;
+  viewingPackageJson: boolean;
 
   // example actions
   addExample: () => void;
@@ -30,12 +36,13 @@ interface WorkbenchStore {
   clearConsoleOutput: (id: string) => void;
   setActiveExample: (id: string) => void;
   setViewingLibrary: (viewing: boolean) => void;
+  setViewingPackageJson: (viewing: boolean) => void;
 
   // library actions
-  setLibraryCode: (code: string) => void;
+  setLibrary: (packageJson: string, code: string) => void;
+  setPackageJson: (packageJson: string) => void;
   setGenerating: (isGenerating: boolean) => void;
   appendStreamBuffer: (chunk: string) => void;
-  clearStreamBuffer: () => void;
   setGenerationError: (error: string | null) => void;
 
   // orchestration
@@ -47,6 +54,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     immer((set, get) => ({
       examples: [],
       library: {
+        packageJson: DEFAULT_PACKAGE_JSON,
         code: "",
         isGenerating: false,
         generationError: null,
@@ -54,6 +62,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       },
       activeExampleId: null,
       viewingLibrary: false,
+      viewingPackageJson: false,
 
       addExample: () => {
         const id = nanoid();
@@ -68,6 +77,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           });
           state.activeExampleId = id;
           state.viewingLibrary = false;
+          state.viewingPackageJson = false;
         });
       },
 
@@ -123,20 +133,41 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         set((state) => {
           state.activeExampleId = id;
           state.viewingLibrary = false;
+          state.viewingPackageJson = false;
         });
       },
 
       setViewingLibrary: (viewing) => {
         set((state) => {
           state.viewingLibrary = viewing;
-          if (viewing) state.activeExampleId = null;
+          if (viewing) {
+            state.activeExampleId = null;
+            state.viewingPackageJson = false;
+          }
         });
       },
 
-      setLibraryCode: (code) => {
+      setViewingPackageJson: (viewing) => {
         set((state) => {
+          state.viewingPackageJson = viewing;
+          if (viewing) {
+            state.activeExampleId = null;
+            state.viewingLibrary = false;
+          }
+        });
+      },
+
+      setLibrary: (packageJson, code) => {
+        set((state) => {
+          state.library.packageJson = packageJson;
           state.library.code = code;
           state.library.streamBuffer = "";
+        });
+      },
+
+      setPackageJson: (packageJson) => {
+        set((state) => {
+          state.library.packageJson = packageJson;
         });
       },
 
@@ -149,12 +180,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       appendStreamBuffer: (chunk) => {
         set((state) => {
           state.library.streamBuffer += chunk;
-        });
-      },
-
-      clearStreamBuffer: () => {
-        set((state) => {
-          state.library.streamBuffer = "";
         });
       },
 
@@ -176,6 +201,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
         const body: GenerateRequestBody = {
           examples: state.examples.map((e) => ({ name: e.name, code: e.code })),
+          currentPackageJson: state.library.packageJson,
           currentLibraryCode: state.library.code,
           refinementInstruction: refinement,
           failedExamples,
@@ -186,7 +212,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           s.library.generationError = null;
           s.library.streamBuffer = "";
           s.viewingLibrary = true;
-          // mark all examples as running
+          s.viewingPackageJson = false;
           s.examples.forEach((e) => {
             e.status = "running";
             e.consoleOutput = [];
@@ -225,11 +251,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
             return;
           }
 
-          const libraryCode = extractCodeFromBuffer(buffer);
-          get().setLibraryCode(libraryCode);
-          set((s) => {
-            s.library.isGenerating = false;
-          });
+          const { packageJson, code } = parseLibraryOutput(buffer);
+          get().setLibrary(packageJson, code);
+          set((s) => { s.library.isGenerating = false; });
 
         } catch (err) {
           get().setGenerationError(err instanceof Error ? err.message : "Unknown error");
@@ -243,6 +267,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         library: { ...state.library, isGenerating: false, streamBuffer: "" },
         activeExampleId: state.activeExampleId,
         viewingLibrary: state.viewingLibrary,
+        viewingPackageJson: state.viewingPackageJson,
       }),
     }
   )

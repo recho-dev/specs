@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const bodySchema = z.object({
   examples: z.array(z.object({ name: z.string(), code: z.string() })).min(1),
+  currentPackageJson: z.string(),
   currentLibraryCode: z.string(),
   refinementInstruction: z.string(),
   failedExamples: z.array(

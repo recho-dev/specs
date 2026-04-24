@@ -6,17 +6,18 @@ interface Props {
   exampleId: string;
   exampleCode: string;
   libraryCode: string;
+  packageJson: string;
   isVisible: boolean;
 }
 
-export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVisible }: Props) {
+export default function PreviewFrame({ exampleId, exampleCode, libraryCode, packageJson, isVisible }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
-  const pendingRef = useRef<{ libraryCode: string; exampleCode: string } | null>(null);
+  const pendingRef = useRef<{ libraryCode: string; exampleCode: string; packageJson: string } | null>(null);
 
-  function sendRunCode(lc: string, ec: string) {
+  function sendRunCode(lc: string, ec: string, pj: string) {
     iframeRef.current?.contentWindow?.postMessage(
-      { type: "RUN_CODE", exampleId, libraryCode: lc, exampleCode: ec },
+      { type: "RUN_CODE", exampleId, libraryCode: lc, exampleCode: ec, packageJson: pj },
       "*"
     );
   }
@@ -25,20 +26,20 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVi
   function handleLoad() {
     readyRef.current = true;
     if (pendingRef.current) {
-      sendRunCode(pendingRef.current.libraryCode, pendingRef.current.exampleCode);
+      sendRunCode(pendingRef.current.libraryCode, pendingRef.current.exampleCode, pendingRef.current.packageJson);
       pendingRef.current = null;
     }
   }
 
-  // Re-run whenever libraryCode or exampleCode changes (and we have a library)
+  // Re-run whenever libraryCode, exampleCode, or packageJson changes (and we have a library)
   useEffect(() => {
     if (!libraryCode.trim()) return;
     if (readyRef.current) {
-      sendRunCode(libraryCode, exampleCode);
+      sendRunCode(libraryCode, exampleCode, packageJson);
     } else {
-      pendingRef.current = { libraryCode, exampleCode };
+      pendingRef.current = { libraryCode, exampleCode, packageJson };
     }
-  }, [libraryCode, exampleCode]);
+  }, [libraryCode, exampleCode, packageJson]);
 
   return (
     <iframe
