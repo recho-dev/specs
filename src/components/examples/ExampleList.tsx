@@ -1,0 +1,59 @@
+"use client";
+
+import { useWorkbenchStore } from "@/store/useWorkbenchStore";
+import ExampleItem from "./ExampleItem";
+
+export default function ExampleList() {
+  const examples = useWorkbenchStore((s) => s.examples);
+  const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
+  const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
+  const addExample = useWorkbenchStore((s) => s.addExample);
+  const removeExample = useWorkbenchStore((s) => s.removeExample);
+  const renameExample = useWorkbenchStore((s) => s.renameExample);
+  const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
+  const generate = useWorkbenchStore((s) => s.generate);
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-3 py-3 border-b border-zinc-800">
+        <h1 className="text-sm font-semibold text-zinc-300 tracking-wide">spec-forge</h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+        {examples.length === 0 && (
+          <p className="text-xs text-zinc-600 px-2 py-3 text-center">
+            No examples yet.
+            <br />
+            Add one to get started.
+          </p>
+        )}
+        {examples.map((ex) => (
+          <ExampleItem
+            key={ex.id}
+            example={ex}
+            isActive={activeExampleId === ex.id}
+            onSelect={() => setActiveExample(ex.id)}
+            onRemove={() => removeExample(ex.id)}
+            onRename={(name) => renameExample(ex.id, name)}
+          />
+        ))}
+      </div>
+
+      <div className="p-2 border-t border-zinc-800 space-y-2">
+        <button
+          onClick={addExample}
+          className="w-full text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-md py-1.5 transition-colors"
+        >
+          + Add Example
+        </button>
+        <button
+          onClick={() => generate()}
+          disabled={isGenerating || examples.length === 0}
+          className="w-full text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-md py-1.5 transition-colors"
+        >
+          {isGenerating ? "Generating..." : "▶ Generate"}
+        </button>
+      </div>
+    </div>
+  );
+}

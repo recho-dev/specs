@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree -aL 3 /Users/subairui/Documents/projects/spec-forge)",
+      "Bash(npx create-next-app@latest *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl *)",
+      "Bash(git -C /Users/subairui/Documents/projects/spec-forge remote -v)",
+      "Bash(git -C /Users/subairui/Documents/projects/spec-forge log --oneline -5)",
+      "Bash(git -C /Users/subairui/Documents/projects/spec-forge status)",
+      "Bash(gh repo *)",
+      "Bash(gh auth *)",
+      "Bash(gh --version)",
+      "Bash(git remote *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(git branch *)",
+      "Bash(git rebase *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git stash *)"
+    ]
+  }
+}
