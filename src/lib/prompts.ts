@@ -20,6 +20,7 @@ RULES:
 5. The #container element is always available in the DOM: document.getElementById('container').
 6. The library must make ALL provided examples work correctly and simultaneously.
 7. Implement EXACTLY the API shown in the examples — the same method names, the same argument shapes, the same option keys. Do NOT add aliases, overloads, or convenience variants not shown. If the example uses \`type: 'barY'\`, do not also support \`type: 'bar'\`.
+   REMOVE any function, class, export, or feature not directly used by the current examples. If an example was deleted, delete all its related code too. The output must contain ONLY what the current examples need — nothing more.
 8. When fixing errors, address them precisely without breaking passing examples.
 9. Keep the library as a single file — no multi-file splits.`;
 
@@ -40,7 +41,7 @@ export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.Me
 
   const currentLibraryBlock =
     currentLibraryCode.trim().length > 0
-      ? `\n\n### Current Library Code (you may use this as a reference, but remove anything not needed by the current examples)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
+      ? `\n\n### Current Library Code (use as a starting point — DELETE any function, class, or export not directly used by the current examples above; the output must match the current examples exactly, no more)\n\`\`\`javascript\n${currentLibraryCode}\n\`\`\``
       : "";
 
   const refinementBlock =
