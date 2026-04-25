@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { SandboxInboundMessage } from "@/types";
 import PreviewFrame from "./PreviewFrame";
 import ConsoleLog from "./ConsoleLog";
+
+const MIN_CONSOLE = 64;
+const MAX_CONSOLE = 500;
+const DEFAULT_CONSOLE = 128;
+const LS_KEY = "spec-forge-console-height";
 
 export default function PreviewPanel() {
   const examples = useWorkbenchStore((s) => s.examples);
@@ -13,7 +18,15 @@ export default function PreviewPanel() {
   const libraryCode = useWorkbenchStore((s) => s.library.code);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
   const appendConsoleLine = useWorkbenchStore((s) => s.appendConsoleLine);
-  const clearConsoleOutput = useWorkbenchStore((s) => s.clearConsoleOutput);
+
+  const [consoleHeight, setConsoleHeight] = useState(DEFAULT_CONSOLE);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const consoleDragging = useRef(false);
+
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(LS_KEY));
+    if (saved) setConsoleHeight(saved);
+  }, []);
 
   // Global message handler routes results to the right example
   useEffect(() => {
@@ -35,15 +48,36 @@ export default function PreviewPanel() {
     return () => window.removeEventListener("message", handleMessage);
   }, [setExampleStatus, appendConsoleLine]);
 
-  // Which example to show console/status for
   const displayedExample = viewingLibrary
     ? null
     : examples.find((e) => e.id === activeExampleId) ?? null;
 
   const visibleId = viewingLibrary ? null : activeExampleId;
 
+  const onConsoleDividerPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    consoleDragging.current = true;
+    document.body.style.userSelect = "none";
+  }, []);
+
+  const onConsoleDividerPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!consoleDragging.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const h = Math.min(MAX_CONSOLE, Math.max(MIN_CONSOLE, rect.bottom - e.clientY));
+    setConsoleHeight(h);
+    localStorage.setItem(LS_KEY, String(h));
+  }, []);
+
+  const onConsoleDividerPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!consoleDragging.current) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    consoleDragging.current = false;
+    document.body.style.userSelect = "";
+  }, []);
+
   return (
-    <div className="flex flex-col h-full">
+    <div ref={containerRef} className="flex flex-col h-full">
       <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center justify-between">
         <span className="text-xs font-medium text-zinc-400">Preview</span>
         {displayedExample && (
@@ -83,12 +117,20 @@ export default function PreviewPanel() {
         )}
       </div>
 
+      {/* Console drag handle */}
+      <div
+        onPointerDown={onConsoleDividerPointerDown}
+        onPointerMove={onConsoleDividerPointerMove}
+        onPointerUp={onConsoleDividerPointerUp}
+        className="h-1 flex-shrink-0 bg-zinc-800 hover:bg-zinc-600 active:bg-zinc-500 cursor-row-resize transition-colors"
+      />
+
       {/* Console output */}
-      <div className="h-32 border-t border-zinc-800 bg-zinc-950 overflow-hidden">
-        <div className="px-3 py-1 border-b border-zinc-800/50">
+      <div className="bg-zinc-950 overflow-hidden flex flex-col" style={{ height: consoleHeight }}>
+        <div className="px-3 py-1 border-b border-zinc-800/50 shrink-0">
           <span className="text-xs text-zinc-600 font-mono">console</span>
         </div>
-        <div className="h-[calc(100%-24px)] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {displayedExample ? (
             <ConsoleLog
               lines={displayedExample.consoleOutput}
