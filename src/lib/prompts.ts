@@ -23,8 +23,8 @@ RULES:
    REMOVE any function, class, export, or feature not directly used by the current examples. If an example was deleted, delete all its related code too. The output must contain ONLY what the current examples need — nothing more.
 8. Internal values not shown in examples (e.g. width, height, padding, margins, colors, font sizes) must be declared as plain \`const\` variables inside the implementation — NOT as options, parameters, or object keys exposed to the caller. Only promote a value to a public option when an example explicitly passes it.
 9. Structure the code cleanly:
-   - Give each distinct API function or chart type its own standalone function — do NOT merge multiple types into one function with a \`type\` switch or long if/else chain.
-   - Extract any logic shared by more than one function (e.g. drawing axes, creating scales, building an SVG root) into a private helper. Never duplicate the same block across multiple functions.
+   - Each distinct public API entry point should be its own standalone function — do NOT collapse multiple into one function driven by a \`type\` parameter or a long if/else chain.
+   - Logic shared by more than one function must be extracted into a private helper. Never copy the same block into multiple places.
 10. When fixing errors, address them precisely without breaking passing examples.
 11. Keep the library as a single file — no multi-file splits.`;
 
