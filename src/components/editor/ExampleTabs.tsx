@@ -11,13 +11,13 @@ const STATUS_DOT: Record<Example["status"], string> = {
 
 interface Props {
   examples: Example[];
-  activeId: string | "library" | "package.json" | null;
-  onTabChange: (id: string | "library" | "package.json") => void;
+  activeId: string | null;
+  onTabChange: (id: string) => void;
 }
 
 export default function ExampleTabs({ examples, activeId, onTabChange }: Props) {
   return (
-    <div className="flex items-center border-b border-zinc-800 bg-zinc-950 overflow-x-auto">
+    <div className="flex items-center overflow-x-auto flex-1 min-w-0">
       {examples.map((ex) => (
         <button
           key={ex.id}
@@ -32,26 +32,6 @@ export default function ExampleTabs({ examples, activeId, onTabChange }: Props) 
           {ex.name}
         </button>
       ))}
-      <button
-        onClick={() => onTabChange("library")}
-        className={`flex items-center gap-1.5 px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
-          activeId === "library"
-            ? "border-indigo-500 text-white"
-            : "border-transparent text-zinc-500 hover:text-zinc-300"
-        }`}
-      >
-        src/index.js
-      </button>
-      <button
-        onClick={() => onTabChange("package.json")}
-        className={`flex items-center gap-1.5 px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
-          activeId === "package.json"
-            ? "border-indigo-500 text-white"
-            : "border-transparent text-zinc-500 hover:text-zinc-300"
-        }`}
-      >
-        package.json
-      </button>
     </div>
   );
 }

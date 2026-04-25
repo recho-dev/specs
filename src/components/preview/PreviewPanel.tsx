@@ -9,7 +9,7 @@ import ConsoleLog from "./ConsoleLog";
 export default function PreviewPanel() {
   const examples = useWorkbenchStore((s) => s.examples);
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
-  const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
+  const editorMode = useWorkbenchStore((s) => s.editorMode);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
   const packageJson = useWorkbenchStore((s) => s.library.packageJson);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
@@ -37,11 +37,11 @@ export default function PreviewPanel() {
   }, [setExampleStatus, appendConsoleLine]);
 
   // Which example to show console/status for
-  const displayedExample = viewingLibrary
+  const displayedExample = editorMode === "source"
     ? null
     : examples.find((e) => e.id === activeExampleId) ?? null;
 
-  const visibleId = viewingLibrary ? null : activeExampleId;
+  const visibleId = editorMode === "source" ? null : activeExampleId;
 
   return (
     <div className="flex flex-col h-full">

@@ -23,8 +23,8 @@ interface WorkbenchStore {
   examples: Example[];
   library: LibraryState;
   activeExampleId: string | null;
-  viewingLibrary: boolean;
-  viewingPackageJson: boolean;
+  editorMode: "example" | "source";
+  activeSourceFile: "package.json" | "src/index.js";
 
   // example actions
   addExample: () => void;
@@ -35,8 +35,8 @@ interface WorkbenchStore {
   appendConsoleLine: (id: string, line: ConsoleLine) => void;
   clearConsoleOutput: (id: string) => void;
   setActiveExample: (id: string) => void;
-  setViewingLibrary: (viewing: boolean) => void;
-  setViewingPackageJson: (viewing: boolean) => void;
+  setEditorMode: (mode: "example" | "source") => void;
+  setActiveSourceFile: (file: "package.json" | "src/index.js") => void;
 
   // library actions
   setLibrary: (packageJson: string, code: string) => void;
@@ -61,8 +61,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         streamBuffer: "",
       },
       activeExampleId: null,
-      viewingLibrary: false,
-      viewingPackageJson: false,
+      editorMode: "example",
+      activeSourceFile: "src/index.js",
 
       addExample: () => {
         const id = nanoid();
@@ -76,8 +76,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
             consoleOutput: [],
           });
           state.activeExampleId = id;
-          state.viewingLibrary = false;
-          state.viewingPackageJson = false;
+          state.editorMode = "example";
         });
       },
 
@@ -132,28 +131,23 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       setActiveExample: (id) => {
         set((state) => {
           state.activeExampleId = id;
-          state.viewingLibrary = false;
-          state.viewingPackageJson = false;
+          state.editorMode = "example";
         });
       },
 
-      setViewingLibrary: (viewing) => {
+      setEditorMode: (mode) => {
         set((state) => {
-          state.viewingLibrary = viewing;
-          if (viewing) {
-            state.activeExampleId = null;
-            state.viewingPackageJson = false;
+          state.editorMode = mode;
+          if (mode === "example" && state.activeExampleId === null && state.examples.length > 0) {
+            state.activeExampleId = state.examples[0].id;
           }
         });
       },
 
-      setViewingPackageJson: (viewing) => {
+      setActiveSourceFile: (file) => {
         set((state) => {
-          state.viewingPackageJson = viewing;
-          if (viewing) {
-            state.activeExampleId = null;
-            state.viewingLibrary = false;
-          }
+          state.activeSourceFile = file;
+          state.editorMode = "source";
         });
       },
 
@@ -211,8 +205,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           s.library.isGenerating = true;
           s.library.generationError = null;
           s.library.streamBuffer = "";
-          s.viewingLibrary = true;
-          s.viewingPackageJson = false;
+          s.editorMode = "source";
+          s.activeSourceFile = "src/index.js";
           s.examples.forEach((e) => {
             e.status = "running";
             e.consoleOutput = [];
@@ -266,8 +260,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         examples: state.examples,
         library: { ...state.library, isGenerating: false, streamBuffer: "" },
         activeExampleId: state.activeExampleId,
-        viewingLibrary: state.viewingLibrary,
-        viewingPackageJson: state.viewingPackageJson,
+        editorMode: state.editorMode,
+        activeSourceFile: state.activeSourceFile,
       }),
     }
   )
