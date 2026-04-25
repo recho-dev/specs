@@ -1,4 +1,4 @@
-import type { GenerateRequestBody } from "@/types";
+import type { GenerateRequestBody, SpecRequestBody } from "@/types";
 import type Anthropic from "@anthropic-ai/sdk";
 
 export const SYSTEM_PROMPT = `You are a JavaScript library code generator. Your ONLY job is to output the complete, working source code of a JavaScript library as a single ES module file.
@@ -73,6 +73,49 @@ export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.Me
             "\n\n---\nOutput the complete library JavaScript code now:",
         },
       ],
+    },
+  ];
+}
+
+export const SPEC_SYSTEM_PROMPT = `You are a JavaScript library API design consultant. Analyze usage examples and respond with one of three actions:
+
+1. {"type":"question","question":"..."} — ask ONE clarifying question when the instruction changes the API in a way that conflicts with existing examples AND you cannot pick a sensible default (e.g. old API vs new API — which to keep?). Max 1 question per response.
+
+2. {"type":"update","examples":[{"id":"...","name":"...","code":"..."}]} — apply changes and return ALL examples (including unchanged ones). Use this when:
+   - An instruction changes API shape (method names, argument structure, option keys) — apply it to all affected examples
+   - No instruction given but examples have cross-example API inconsistencies (e.g. one uses chart.data(), another uses chart.setData()) — normalize them
+
+3. {"type":"passthrough"} — use this when:
+   - The instruction is about implementation/behavior, not API shape (e.g. "make default color red", "fix the animation", "increase padding")
+   - No instruction given and examples are already consistent
+
+Return ONLY valid JSON. No markdown, no explanation.`;
+
+export function buildSpecMessages(body: SpecRequestBody): Anthropic.MessageParam[] {
+  const { examples, refinementInstruction, conversationHistory } = body;
+
+  const examplesBlock = examples
+    .map((ex, i) => `### Example ${i + 1}: ${ex.name} (id: ${ex.id})\n\`\`\`javascript\n${ex.code}\n\`\`\``)
+    .join("\n\n");
+
+  const historyBlock =
+    conversationHistory.length > 0
+      ? "\n\n## Previous Clarifications\n\n" +
+        conversationHistory.map((t) => `**Q:** ${t.question}\n**A:** ${t.answer}`).join("\n\n")
+      : "";
+
+  const instructionBlock = refinementInstruction.trim()
+    ? `\n\n## User Instruction\n${refinementInstruction}`
+    : "\n\n## Task\nNo user instruction — check for cross-example API inconsistencies only.";
+
+  return [
+    {
+      role: "user",
+      content:
+        `## Current Examples\n\n${examplesBlock}` +
+        instructionBlock +
+        historyBlock +
+        "\n\n---\nRespond with JSON only:",
     },
   ];
 }

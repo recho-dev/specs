@@ -16,7 +16,9 @@ export default function EditorPanel() {
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setViewingLibrary = useWorkbenchStore((s) => s.setViewingLibrary);
-  const generate = useWorkbenchStore((s) => s.generate);
+  const refine = useWorkbenchStore((s) => s.refine);
+  const answerSpecQuestion = useWorkbenchStore((s) => s.answerSpecQuestion);
+  const specQuestion = useWorkbenchStore((s) => s.specQuestion);
 
   const activeExample = examples.find((e) => e.id === activeExampleId) ?? null;
 
@@ -75,7 +77,9 @@ export default function EditorPanel() {
       <RefinementBar
         isGenerating={isGenerating}
         hasExamples={examples.length > 0}
-        onGenerate={generate}
+        specQuestion={specQuestion}
+        onGenerate={refine}
+        onAnswer={answerSpecQuestion}
       />
     </div>
   );
