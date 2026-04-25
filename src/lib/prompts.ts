@@ -12,7 +12,11 @@ RULES:
    - Animation/tweening → GSAP
    - Math/statistics → mathjs
    Use browser-native APIs only when no npm package is the obvious fit (e.g. a simple DOM toggle).
-4. Always export the library's public API as named exports (e.g. \`export class BarChart\`, \`export function createChart\`).
+4. Match your export style EXACTLY to how the examples import the library:
+   - \`import * as X from 'pkg'\` → use named exports: \`export function foo() {}\`, \`export class Bar {}\`
+   - \`import X from 'pkg'\` → use a single default export: \`export default { foo, Bar }\` or \`export default class Bar {}\`
+   - \`import { foo, Bar } from 'pkg'\` → use named exports: \`export function foo() {}\`, \`export class Bar {}\`
+   NEVER assign to \`window.*\` — that is handled automatically by the runtime.
 5. The #container element is always available in the DOM: document.getElementById('container').
 6. The library must make ALL provided examples work correctly and simultaneously.
 7. Implement EXACTLY the API shown in the examples — the same method names, the same argument shapes, the same option keys. Do NOT add aliases, overloads, or convenience variants not shown. If the example uses \`type: 'barY'\`, do not also support \`type: 'bar'\`.
