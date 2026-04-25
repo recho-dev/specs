@@ -21,8 +21,9 @@ RULES:
 6. The library must make ALL provided examples work correctly and simultaneously.
 7. Implement EXACTLY the API shown in the examples — the same method names, the same argument shapes, the same option keys. Do NOT add aliases, overloads, or convenience variants not shown. If the example uses \`type: 'barY'\`, do not also support \`type: 'bar'\`.
    REMOVE any function, class, export, or feature not directly used by the current examples. If an example was deleted, delete all its related code too. The output must contain ONLY what the current examples need — nothing more.
-8. When fixing errors, address them precisely without breaking passing examples.
-9. Keep the library as a single file — no multi-file splits.`;
+8. Internal values not shown in examples (e.g. width, height, padding, margins, colors, font sizes) must be declared as plain \`const\` variables inside the implementation — NOT as options, parameters, or object keys exposed to the caller. Only promote a value to a public option when an example explicitly passes it.
+9. When fixing errors, address them precisely without breaking passing examples.
+10. Keep the library as a single file — no multi-file splits.`;
 
 export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.MessageParam[] {
   const { examples, currentLibraryCode, refinementInstruction, failedExamples } = body;
