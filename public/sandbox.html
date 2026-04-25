@@ -96,20 +96,27 @@
           URL.revokeObjectURL(libUrl);
         }
 
-        // 3. Expose all named exports as globals so example code can use them directly
-        Object.keys(libModule).forEach(function (key) {
-          if (key !== 'default') window[key] = libModule[key];
-        });
-        // Also expose default export by its function/class name if it has one
-        if (libModule.default && libModule.default.name) {
-          window[libModule.default.name] = libModule.default;
-        }
+        // 3. Strip static import statements from example code and replace with
+        //    variable declarations bound to the loaded library module.
+        //    This lets example code use `import * as X from 'pkg'` syntax without
+        //    needing a real module context.
+        var processedExample = exampleCode
+          // import * as X from '...' → const X = __lib__ (namespace object)
+          .replace(/^\s*import\s*\*\s*as\s+(\w+)\s+from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, name) { return 'const ' + name + ' = __lib__;'; })
+          // import X from '...' → const X = __lib__.default ?? __lib__
+          .replace(/^\s*import\s+(\w+)\s+from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, name) { return 'const ' + name + ' = __lib__.default ?? __lib__;'; })
+          // import { a, b } from '...' → const { a, b } = __lib__
+          .replace(/^\s*import\s*\{([^}]+)\}\s*from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, names) { return 'const {' + names + '} = __lib__;'; });
 
         // 4. Run example code in async IIFE (top-level await supported)
         var exampleFn = new Function(
-          'return (async function __specforge_example__() {\n' + exampleCode + '\n})()'
+          '__lib__',
+          'return (async function __specforge_example__() {\n' + processedExample + '\n})()'
         );
-        await exampleFn();
+        await exampleFn(libModule);
       }
 
       // Message receiver
