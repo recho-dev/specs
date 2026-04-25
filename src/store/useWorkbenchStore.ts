@@ -25,11 +25,13 @@ interface WorkbenchStore {
   removeExample: (id: string) => void;
   renameExample: (id: string, name: string) => void;
   setExampleCode: (id: string, code: string) => void;
-  setExampleStatus: (id: string, status: Example["status"], error?: string | null) => void;
+  setExampleStatus: (id: string, status: Example["status"], error?: string | null, renderedHtml?: string) => void;
   appendConsoleLine: (id: string, line: ConsoleLine) => void;
   clearConsoleOutput: (id: string) => void;
   setActiveExample: (id: string) => void;
   setViewingLibrary: (viewing: boolean) => void;
+  setSnapshot: (id: string) => void;
+  deleteSnapshot: (id: string) => void;
 
   // library actions
   setLibraryCode: (code: string) => void;
@@ -65,6 +67,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
             status: "idle",
             error: null,
             consoleOutput: [],
+            snapshotMismatch: false,
           });
           state.activeExampleId = id;
           state.viewingLibrary = false;
@@ -95,12 +98,18 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         });
       },
 
-      setExampleStatus: (id, status, error = null) => {
+      setExampleStatus: (id, status, error = null, renderedHtml) => {
         set((state) => {
           const ex = state.examples.find((e) => e.id === id);
           if (ex) {
             ex.status = status;
             ex.error = error ?? null;
+            if (renderedHtml !== undefined) {
+              ex.actualHtml = renderedHtml;
+              if (ex.snapshot !== undefined) {
+                ex.snapshotMismatch = renderedHtml.trim() !== ex.snapshot.trim();
+              }
+            }
           }
         });
       },
@@ -116,6 +125,26 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         set((state) => {
           const ex = state.examples.find((e) => e.id === id);
           if (ex) ex.consoleOutput = [];
+        });
+      },
+
+      setSnapshot: (id) => {
+        set((state) => {
+          const ex = state.examples.find((e) => e.id === id);
+          if (ex && ex.actualHtml !== undefined) {
+            ex.snapshot = ex.actualHtml;
+            ex.snapshotMismatch = false;
+          }
+        });
+      },
+
+      deleteSnapshot: (id) => {
+        set((state) => {
+          const ex = state.examples.find((e) => e.id === id);
+          if (ex) {
+            ex.snapshot = undefined;
+            ex.snapshotMismatch = false;
+          }
         });
       },
 
@@ -186,11 +215,12 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           s.library.generationError = null;
           s.library.streamBuffer = "";
           s.viewingLibrary = true;
-          // mark all examples as running
           s.examples.forEach((e) => {
             e.status = "running";
             e.consoleOutput = [];
             e.error = null;
+            e.snapshotMismatch = false;
+            e.actualHtml = undefined;
           });
         });
 
@@ -239,7 +269,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     {
       name: "spec-forge-state",
       partialize: (state) => ({
-        examples: state.examples,
+        examples: state.examples.map(({ actualHtml: _actualHtml, ...rest }) => ({ ...rest, snapshotMismatch: false })),
         library: { ...state.library, isGenerating: false, streamBuffer: "" },
         activeExampleId: state.activeExampleId,
         viewingLibrary: state.viewingLibrary,

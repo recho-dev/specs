@@ -126,14 +126,16 @@
         var data = event.data;
         handleRunCode(data)
           .then(function () {
+            var html = document.getElementById('container').innerHTML;
             window.parent.postMessage(
-              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'pass', error: null },
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'pass', error: null, renderedHtml: html },
               '*'
             );
           })
           .catch(function (err) {
+            var html = document.getElementById('container').innerHTML;
             window.parent.postMessage(
-              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'fail', error: err && err.message ? err.message : String(err) },
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'fail', error: err && err.message ? err.message : String(err), renderedHtml: html },
               '*'
             );
           });

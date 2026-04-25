@@ -13,6 +13,9 @@ export interface Example {
   status: ExampleStatus;
   error: string | null;
   consoleOutput: ConsoleLine[];
+  snapshot?: string;
+  snapshotMismatch: boolean;
+  actualHtml?: string;
 }
 
 export interface LibraryState {
@@ -36,6 +39,7 @@ export interface RunResultMessage {
   exampleId: string;
   status: "pass" | "fail";
   error: string | null;
+  renderedHtml: string;
 }
 
 export interface ConsoleMessage {
