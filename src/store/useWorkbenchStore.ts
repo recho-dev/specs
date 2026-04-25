@@ -7,16 +7,6 @@ import { nanoid } from "nanoid";
 import type { Example, LibraryState, ConsoleLine, GenerateRequestBody, SpecRequestBody, SpecResponse, SpecConversationTurn } from "@/types";
 import { extractCodeFromBuffer } from "@/lib/sandbox";
 
-function examplesChangedSinceLastGen(
-  current: Example[],
-  last: { id: string; code: string }[] | null
-): boolean {
-  if (!last) return false;
-  if (current.length !== last.length) return true;
-  const lastMap = new Map(last.map((e) => [e.id, e.code]));
-  return current.some((e) => lastMap.get(e.id) !== e.code);
-}
-
 const DEFAULT_EXAMPLE_CODE = `// Write how you want to use the library here
 // Example:
 // const chart = new BarChart(document.querySelector('#container'));
@@ -52,7 +42,6 @@ interface WorkbenchStore {
   specQuestion: string | null;
   specConversationHistory: SpecConversationTurn[];
   pendingRefinementInstruction: string;
-  lastGeneratedExamples: { id: string; code: string }[] | null;
 
   // orchestration
   generate: (refinement?: string) => Promise<void>;
@@ -76,7 +65,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       specQuestion: null,
       specConversationHistory: [],
       pendingRefinementInstruction: "",
-      lastGeneratedExamples: null,
 
       addExample: () => {
         const id = nanoid();
@@ -192,14 +180,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       refine: async (instruction) => {
         const state = get();
         if (state.examples.length === 0) return;
-
-        const hasInstruction = instruction.trim().length > 0;
-        const hasChanges = examplesChangedSinceLastGen(state.examples, state.lastGeneratedExamples);
-
-        // Skip spec agent when no instruction and no example changes
-        if (!hasInstruction && !hasChanges) {
-          return get().generate("");
-        }
 
         set((s) => {
           s.library.isGenerating = true;
@@ -364,7 +344,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           get().setLibraryCode(libraryCode);
           set((s) => {
             s.library.isGenerating = false;
-            s.lastGeneratedExamples = s.examples.map((e) => ({ id: e.id, code: e.code }));
           });
 
         } catch (err) {
@@ -379,7 +358,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         library: { ...state.library, isGenerating: false, streamBuffer: "" },
         activeExampleId: state.activeExampleId,
         viewingLibrary: state.viewingLibrary,
-        lastGeneratedExamples: state.lastGeneratedExamples,
       }),
     }
   )
