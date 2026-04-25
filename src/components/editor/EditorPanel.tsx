@@ -1,7 +1,6 @@
 "use client";
 
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
-import ExampleTabs from "./ExampleTabs";
 import SourceSidebar from "./SourceSidebar";
 import CodeEditor from "./CodeEditor";
 import RefinementBar from "./RefinementBar";
@@ -61,13 +60,11 @@ export default function EditorPanel() {
           </button>
         </div>
 
-        {/* Example tabs — only in example mode */}
-        {editorMode === "example" && (
-          <ExampleTabs
-            examples={examples}
-            activeId={activeExampleId}
-            onTabChange={setActiveExample}
-          />
+        {/* Active example name — only in example mode */}
+        {editorMode === "example" && activeExample && (
+          <span className="text-xs text-zinc-500 px-2 truncate">
+            {activeExample.name}
+          </span>
         )}
 
         {/* Source breadcrumb — only in source mode */}
