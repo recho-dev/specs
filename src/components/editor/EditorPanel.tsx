@@ -60,13 +60,6 @@ export default function EditorPanel() {
           </button>
         </div>
 
-        {/* Active example name — only in example mode */}
-        {editorMode === "example" && activeExample && (
-          <span className="text-xs text-zinc-500 px-2 truncate">
-            {activeExample.name}
-          </span>
-        )}
-
         {/* Source breadcrumb — only in source mode */}
         {editorMode === "source" && (
           <span className="text-xs text-zinc-500 px-2 truncate">
