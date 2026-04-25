@@ -7,11 +7,12 @@ RULES:
 1. Output ONLY valid JavaScript. No markdown, no code fences, no explanation, no preamble.
 2. Write the library as an ES module. Use \`import\` for dependencies and \`export\` for the public API.
 3. ALWAYS use established npm packages — never hand-roll what a library solves. This is mandatory, not optional:
-   - Any chart, graph, or data visualization → MUST use D3.js: \`import * as d3 from 'd3'\`. Do NOT use raw SVG, Canvas drawing, or custom rendering for charts.
+   - Any chart, graph, or data visualization → MUST use D3.js. Do NOT use raw SVG, Canvas drawing, or custom rendering for charts.
    - 3D graphics → Three.js
    - Animation/tweening → GSAP
    - Math/statistics → mathjs
    Use browser-native APIs only when no npm package is the obvious fit (e.g. a simple DOM toggle).
+   ALWAYS use named imports for external packages — import only what you use: \`import { scaleLinear, axisBottom } from 'd3'\`. NEVER use namespace imports like \`import * as d3 from 'd3'\` — they defeat tree-shaking.
 4. Match your export style EXACTLY to how the examples import the library:
    - \`import * as X from 'pkg'\` → use named exports: \`export function foo() {}\`, \`export class Bar {}\`
    - \`import X from 'pkg'\` → use a single default export: \`export default { foo, Bar }\` or \`export default class Bar {}\`
