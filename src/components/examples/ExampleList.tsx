@@ -2,6 +2,7 @@
 
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import ExampleItem from "./ExampleItem";
+import VersionTimeline from "@/components/versions/VersionTimeline";
 
 export default function ExampleList() {
   const examples = useWorkbenchStore((s) => s.examples);
@@ -38,6 +39,8 @@ export default function ExampleList() {
           />
         ))}
       </div>
+
+      <VersionTimeline />
 
       <div className="p-2 border-t border-zinc-800 space-y-2">
         <button

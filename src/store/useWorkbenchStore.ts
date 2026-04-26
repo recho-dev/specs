@@ -4,8 +4,10 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
-import type { Example, LibraryState, ConsoleLine, GenerateRequestBody, SpecRequestBody, SpecResponse, SpecConversationTurn } from "@/types";
+import type { Example, LibraryState, ConsoleLine, GenerateRequestBody, SpecRequestBody, SpecResponse, SpecConversationTurn, Version, ExampleStatus } from "@/types";
 import { extractCodeFromBuffer } from "@/lib/sandbox";
+
+const MAX_VERSIONS = 30;
 
 const DEFAULT_EXAMPLE_CODE = `// Write how you want to use the library here
 // Example:
@@ -43,6 +45,13 @@ interface WorkbenchStore {
   specConversationHistory: SpecConversationTurn[];
   pendingRefinementInstruction: string;
 
+  // version history
+  versions: Version[];
+  activeVersionId: string | null;
+  saveVersion: (refinementPrompt: string) => void;
+  restoreVersion: (id: string) => void;
+  _updateVersionDescription: (id: string, description: string) => void;
+
   // orchestration
   generate: (refinement?: string) => Promise<void>;
   refine: (instruction: string) => Promise<void>;
@@ -65,6 +74,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       specQuestion: null,
       specConversationHistory: [],
       pendingRefinementInstruction: "",
+      versions: [],
+      activeVersionId: null,
 
       addExample: () => {
         const id = nanoid();
@@ -174,6 +185,79 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           state.library.generationError = error;
           state.library.isGenerating = false;
           state.library.streamBuffer = "";
+        });
+      },
+
+      saveVersion: (refinementPrompt) => {
+        const state = get();
+        const previousVersion = state.versions[state.versions.length - 1] ?? null;
+
+        let newVersionId: string;
+        set((s) => {
+          const newVersion: Version = {
+            id: nanoid(),
+            versionNumber: s.versions.length + 1,
+            timestamp: Date.now(),
+            libraryCode: s.library.code,
+            examples: s.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
+            refinementPrompt,
+            description: "",
+          };
+          s.versions.push(newVersion);
+          if (s.versions.length > MAX_VERSIONS) {
+            s.versions.splice(0, s.versions.length - MAX_VERSIONS);
+          }
+          s.activeVersionId = newVersion.id;
+          newVersionId = newVersion.id;
+        });
+
+        // Generate description asynchronously
+        const currentState = get();
+        const currentVersion = currentState.versions.find((v) => v.id === newVersionId!)!;
+        fetch("/api/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            refinementPrompt,
+            previousLibraryCode: previousVersion?.libraryCode ?? "",
+            currentLibraryCode: currentVersion.libraryCode,
+            previousExamples: previousVersion?.examples ?? [],
+            currentExamples: currentVersion.examples,
+          }),
+        })
+          .then((res) => res.json())
+          .then(({ description }) => {
+            if (description) get()._updateVersionDescription(newVersionId!, description);
+          })
+          .catch(() => {});
+      },
+
+      _updateVersionDescription: (id, description) => {
+        set((s) => {
+          const v = s.versions.find((v) => v.id === id);
+          if (v) v.description = description;
+        });
+      },
+
+      restoreVersion: (id) => {
+        set((s) => {
+          const v = s.versions.find((v) => v.id === id);
+          if (!v) return;
+          s.examples = v.examples.map((e) => ({
+            ...e,
+            status: "idle" as ExampleStatus,
+            error: null,
+            consoleOutput: [],
+          }));
+          s.library.code = v.libraryCode;
+          s.library.generationError = null;
+          s.library.streamBuffer = "";
+          s.viewingLibrary = true;
+          s.activeExampleId = null;
+          s.specQuestion = null;
+          s.specConversationHistory = [];
+          s.pendingRefinementInstruction = "";
+          s.activeVersionId = id;
         });
       },
 
@@ -342,6 +426,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
           const libraryCode = extractCodeFromBuffer(buffer);
           get().setLibraryCode(libraryCode);
+          get().saveVersion(refinement);
           set((s) => {
             s.library.isGenerating = false;
           });
@@ -358,6 +443,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         library: { ...state.library, isGenerating: false, streamBuffer: "" },
         activeExampleId: state.activeExampleId,
         viewingLibrary: state.viewingLibrary,
+        versions: state.versions,
+        activeVersionId: state.activeVersionId,
       }),
     }
   )
