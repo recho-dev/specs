@@ -25,16 +25,16 @@ export default function VersionTimeline() {
 
   return (
     <>
-      <div className="border-t border-zinc-800">
+      <div className="border-t border-zinc-200">
         <button
           onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-600 hover:text-zinc-900 transition-colors"
         >
           <span className="flex items-center gap-1">
             <span className={`transition-transform inline-block ${open ? 'rotate-90' : ''}`}>▸</span>
             History
           </span>
-          <span className="text-zinc-600">{versions.length}</span>
+          <span className="text-zinc-500">{versions.length}</span>
         </button>
 
         {open && (
@@ -45,26 +45,26 @@ export default function VersionTimeline() {
                 <div
                   key={v.id}
                   className={`group flex items-center justify-between px-3 py-1.5 ${
-                    isCurrent ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                    isCurrent ? 'bg-zinc-100' : 'hover:bg-zinc-50'
                   }`}
                 >
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className={`text-xs font-mono ${isCurrent ? 'text-indigo-400' : 'text-zinc-400'}`}>
+                    <span className={`text-xs font-mono ${isCurrent ? 'text-indigo-700' : 'text-zinc-700'}`}>
                       v{v.versionNumber}
                     </span>
                     <span
-                      className={`text-xs truncate ${v.description ? 'text-zinc-400' : 'text-zinc-600 italic'}`}
+                      className={`text-xs truncate ${v.description ? 'text-zinc-700' : 'text-zinc-500 italic'}`}
                       title={v.description}
                     >
                       {v.description || 'Summarizing…'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <span className="text-[10px] text-zinc-500">{formatAge(v.timestamp)}</span>
+                    <span className="text-[10px] text-zinc-400">{formatAge(v.timestamp)}</span>
                     <button
                       onClick={() => setDiffVersion(v)}
                       title={`Diff v${v.versionNumber} vs current`}
-                      className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 text-xs px-1 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-900 text-xs px-1 transition-opacity"
                     >
                       ±
                     </button>
@@ -72,7 +72,7 @@ export default function VersionTimeline() {
                       onClick={() => restoreVersion(v.id)}
                       disabled={isCurrent || isGenerating}
                       title={`Restore v${v.versionNumber}`}
-                      className="opacity-0 group-hover:opacity-100 disabled:opacity-0 text-zinc-500 hover:text-indigo-400 text-xs px-1 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 disabled:opacity-0 text-zinc-500 hover:text-indigo-700 text-xs px-1 transition-opacity"
                     >
                       ↺
                     </button>

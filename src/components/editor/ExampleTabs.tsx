@@ -16,15 +16,15 @@ interface Props {
 
 export default function ExampleTabs({ examples, activeId, onTabChange }: Props) {
   return (
-    <div className="flex items-center border-b border-zinc-800 bg-zinc-950 overflow-x-auto">
+    <div className="flex items-center border-b border-zinc-200 bg-white overflow-x-auto">
       {examples.map((ex) => (
         <button
           key={ex.id}
           onClick={() => onTabChange(ex.id)}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
             activeId === ex.id
-              ? "border-indigo-500 text-white"
-              : "border-transparent text-zinc-500 hover:text-zinc-300"
+              ? "border-indigo-500 text-zinc-900"
+              : "border-transparent text-zinc-600 hover:text-zinc-900"
           }`}
         >
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[ex.status]}`} />
@@ -35,8 +35,8 @@ export default function ExampleTabs({ examples, activeId, onTabChange }: Props) 
         onClick={() => onTabChange("library")}
         className={`flex items-center gap-1.5 px-4 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors ${
           activeId === "library"
-            ? "border-indigo-500 text-white"
-            : "border-transparent text-zinc-500 hover:text-zinc-300"
+            ? "border-indigo-500 text-zinc-900"
+            : "border-transparent text-zinc-600 hover:text-zinc-900"
         }`}
       >
         Library

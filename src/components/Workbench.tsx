@@ -42,8 +42,8 @@ export default function Workbench() {
   }, []);
 
   return (
-    <div ref={containerRef} className="h-full flex overflow-hidden bg-zinc-950 text-zinc-100">
-      <aside className="w-52 flex-shrink-0 border-r border-zinc-800 flex flex-col">
+    <div ref={containerRef} className="h-full flex overflow-hidden bg-white text-zinc-900">
+      <aside className="w-52 flex-shrink-0 border-r border-zinc-200 flex flex-col">
         <ExampleList />
       </aside>
 
@@ -56,7 +56,7 @@ export default function Workbench() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className="w-1 flex-shrink-0 bg-zinc-800 hover:bg-zinc-600 active:bg-zinc-500 cursor-col-resize transition-colors"
+        className="w-1 flex-shrink-0 bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 cursor-col-resize transition-colors"
       />
 
       <aside className="flex-shrink-0 flex flex-col" style={{ width: previewWidth }}>

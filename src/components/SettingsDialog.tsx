@@ -34,12 +34,12 @@ export default function SettingsDialog({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md"
+        className="bg-white border border-zinc-200 rounded-lg p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-sm font-medium text-zinc-200 mb-4">Settings</h2>
+        <h2 className="text-sm font-medium text-zinc-900 mb-4">Settings</h2>
 
-        <label className="block text-xs text-zinc-500 mb-1.5">
+        <label className="block text-xs text-zinc-600 mb-1.5">
           Anthropic API Key
         </label>
         <input
@@ -47,17 +47,17 @@ export default function SettingsDialog({ open, onClose }: Props) {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-ant-..."
-          className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
+          className="w-full bg-white border border-zinc-300 rounded px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-indigo-500"
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
         />
-        <p className="text-xs text-zinc-600 mt-1.5">
+        <p className="text-xs text-zinc-500 mt-1.5">
           Your key is stored locally in the app data folder.
         </p>
 
         <div className="flex items-center justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5"
+            className="text-xs text-zinc-600 hover:text-zinc-900 transition-colors px-3 py-1.5"
           >
             Cancel
           </button>

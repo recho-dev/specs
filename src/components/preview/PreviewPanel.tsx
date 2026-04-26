@@ -77,14 +77,14 @@ export default function PreviewPanel() {
 
   return (
     <div ref={containerRef} className="flex flex-col h-full">
-      <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-400">Preview</span>
+      <div className="px-3 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-600">Preview</span>
         {displayedExample && (
           <span className={`text-xs ${
             displayedExample.status === "pass" ? "text-green-400" :
             displayedExample.status === "fail" ? "text-red-400" :
             displayedExample.status === "running" ? "text-yellow-400" :
-            "text-zinc-600"
+            "text-zinc-500"
           }`}>
             {displayedExample.status === "running" ? "Running..." :
              displayedExample.status === "pass" ? "✓ Pass" :
@@ -96,7 +96,7 @@ export default function PreviewPanel() {
       {/* iframes — one per example, all in DOM, show/hide */}
       <div className="flex-1 min-h-0 relative bg-white">
         {examples.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm bg-zinc-950">
+          <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-sm bg-zinc-50">
             Preview will appear here
           </div>
         )}
@@ -110,7 +110,7 @@ export default function PreviewPanel() {
           />
         ))}
         {!libraryCode && examples.length > 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm bg-zinc-950">
+          <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-sm bg-zinc-50">
             Click Generate to build the library
           </div>
         )}
@@ -121,13 +121,13 @@ export default function PreviewPanel() {
         onPointerDown={onConsoleDividerPointerDown}
         onPointerMove={onConsoleDividerPointerMove}
         onPointerUp={onConsoleDividerPointerUp}
-        className="h-1 flex-shrink-0 bg-zinc-800 hover:bg-zinc-600 active:bg-zinc-500 cursor-row-resize transition-colors"
+        className="h-1 flex-shrink-0 bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 cursor-row-resize transition-colors"
       />
 
       {/* Console output */}
-      <div className="bg-zinc-950 overflow-hidden flex flex-col" style={{ height: consoleHeight }}>
-        <div className="px-3 py-1 border-b border-zinc-800/50 shrink-0">
-          <span className="text-xs text-zinc-600 font-mono">console</span>
+      <div className="bg-zinc-50 overflow-hidden flex flex-col" style={{ height: consoleHeight }}>
+        <div className="px-3 py-1 border-b border-zinc-200 shrink-0">
+          <span className="text-xs text-zinc-500 font-mono">console</span>
         </div>
         <div className="flex-1 overflow-y-auto">
           {displayedExample ? (
@@ -136,7 +136,7 @@ export default function PreviewPanel() {
               error={displayedExample.error}
             />
           ) : (
-            <div className="text-xs text-zinc-700 px-3 py-2 font-mono">
+            <div className="text-xs text-zinc-500 px-3 py-2 font-mono">
               Select an example to see output
             </div>
           )}

@@ -13,7 +13,7 @@ export default function CodeEditor({ value, onChange, readOnly = false, language
   return (
     <Suspense
       fallback={
-        <div className="flex-1 flex items-center justify-center bg-zinc-900 text-zinc-600 text-sm">
+        <div className="flex-1 flex items-center justify-center bg-zinc-50 text-zinc-500 text-sm">
           Loading editor...
         </div>
       }
@@ -23,7 +23,7 @@ export default function CodeEditor({ value, onChange, readOnly = false, language
         language={language}
         value={value}
         onChange={(v) => onChange?.(v ?? '')}
-        theme="vs-dark"
+        theme="vs"
         options={{
           readOnly,
           fontSize: 13,

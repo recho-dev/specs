@@ -30,10 +30,10 @@ export default function App() {
         {isProjectLoaded ? (
           <Workbench />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center bg-zinc-950 gap-6">
+          <div className="h-full flex flex-col items-center justify-center bg-white gap-6">
             <div className="text-center">
-              <h1 className="text-lg font-medium text-zinc-200 mb-1">Forma</h1>
-              <p className="text-sm text-zinc-500">Build JavaScript libraries by writing examples</p>
+              <h1 className="text-lg font-medium text-zinc-900 mb-1">Forma</h1>
+              <p className="text-sm text-zinc-600">Build JavaScript libraries by writing examples</p>
             </div>
             <div className="flex gap-3">
               <button
@@ -44,14 +44,14 @@ export default function App() {
               </button>
               <button
                 onClick={handleOpenProject}
-                className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition-colors"
+                className="px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded transition-colors"
               >
                 Open Project
               </button>
             </div>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+              className="text-xs text-zinc-500 hover:text-zinc-700 transition-colors"
             >
               Configure API Key
             </button>
