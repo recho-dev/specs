@@ -32,29 +32,23 @@ export default function App() {
         ) : (
           <div className="h-full flex flex-col items-center justify-center bg-white gap-6">
             <div className="text-center">
-              <h1 className="text-lg font-medium text-zinc-900 mb-1">Forma</h1>
-              <p className="text-sm text-zinc-600">Build JavaScript libraries by writing examples</p>
+              <h1 className="text-4xl font-black font-serif tracking-tight text-zinc-900 mb-2">Forma</h1>
+              <p className="text-lg text-zinc-600">Build JavaScript libraries from examples.</p>
             </div>
             <div className="flex gap-3">
               <button
-                onClick={handleNewProject}
+                onClick={handleOpenProject}
                 className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-colors"
               >
-                New Project
+                Open Library
               </button>
               <button
-                onClick={handleOpenProject}
+                onClick={handleNewProject}
                 className="px-4 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded transition-colors"
               >
-                Open Project
+                New Library
               </button>
             </div>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="text-xs text-zinc-500 hover:text-zinc-700 transition-colors"
-            >
-              Configure API Key
-            </button>
           </div>
         )}
       </div>
