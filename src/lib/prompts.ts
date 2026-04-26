@@ -21,7 +21,7 @@ RULES:
 5. The #container element is always available in the DOM: document.getElementById('container').
 6. The library must make ALL provided examples work correctly and simultaneously.
 7. Implement EXACTLY the API shown in the examples — the same method names, the same argument shapes, the same option keys. Do NOT add aliases, overloads, or convenience variants not shown. If the example uses \`type: 'barY'\`, do not also support \`type: 'bar'\`.
-   REMOVE any function, class, export, or feature not directly used by the current examples. If an example was deleted, delete all its related code too. The output must contain ONLY what the current examples need — nothing more.
+   DEAD CODE RULE: Treat the current examples as the sole source of truth. If a method, class, option key, or export does not appear anywhere in the current examples, it does not exist — delete it unconditionally, even if it exists in the current library code. Do not keep it "just in case". The previous library code is only a hint for implementation details; the examples define the entire public API.
 8. Internal values not shown in examples (e.g. width, height, padding, margins, colors, font sizes) must be declared as plain \`const\` variables inside the implementation — NOT as options, parameters, or object keys exposed to the caller. Only promote a value to a public option when an example explicitly passes it.
 9. Structure the code cleanly:
    - Each distinct public API entry point should be its own standalone function — do NOT collapse multiple into one function driven by a \`type\` parameter or a long if/else chain.
