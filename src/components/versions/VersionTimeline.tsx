@@ -60,9 +60,13 @@ export default function VersionTimeline() {
                     </span>
                     <span
                       className={`text-xs truncate ${v.description ? "text-zinc-400" : "text-zinc-600 italic"}`}
-                      title={v.description || "Generating summary…"}
+                      title={v.description ?? v.refinementPrompt ?? ""}
                     >
-                      {v.description || "Summarizing…"}
+                      {v.description === undefined
+                        ? (v.refinementPrompt || "—")
+                        : v.description === ""
+                        ? "Summarizing…"
+                        : v.description}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
