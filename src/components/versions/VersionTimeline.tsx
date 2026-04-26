@@ -21,9 +21,7 @@ export default function VersionTimeline() {
   const restoreVersion = useWorkbenchStore((s) => s.restoreVersion);
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
   const currentCode = useWorkbenchStore((s) => s.library.code);
-  const currentExamples = useWorkbenchStore((s) =>
-    s.examples.map((e) => ({ id: e.id, name: e.name, code: e.code }))
-  );
+  const currentExamples = useWorkbenchStore((s) => s.examples);
   const [open, setOpen] = useState(false);
   const [diffVersion, setDiffVersion] = useState<Version | null>(null);
 
