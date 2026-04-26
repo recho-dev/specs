@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; font-family: sans-serif; }
+    #container { width: 100%; min-height: 100vh; padding: 16px; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    (function () {
+      'use strict';
+
+      var currentExampleId = null;
+
+      // Console interception
+      var LEVELS = ['log', 'warn', 'error', 'info'];
+      LEVELS.forEach(function (level) {
+        var original = console[level].bind(console);
+        console[level] = function () {
+          original.apply(console, arguments);
+          var args = Array.prototype.slice.call(arguments).map(function (a) {
+            try { return JSON.stringify(a); } catch (_) { return String(a); }
+          });
+          window.parent.postMessage(
+            { type: 'CONSOLE', exampleId: currentExampleId, level: level, args: args },
+            '*'
+          );
+        };
+      });
+
+      // Sync error interception
+      window.addEventListener('error', function (e) {
+        window.parent.postMessage(
+          { type: 'RUN_RESULT', exampleId: currentExampleId, status: 'fail', error: e.message || String(e) },
+          '*'
+        );
+      });
+
+      // Async error interception
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason || 'Unhandled rejection');
+        window.parent.postMessage(
+          { type: 'RUN_RESULT', exampleId: currentExampleId, status: 'fail', error: msg },
+          '*'
+        );
+      });
+
+      // Transform bare specifier imports to esm.sh CDN URLs
+      // e.g. `import * as d3 from 'd3'` → `import * as d3 from 'https://esm.sh/d3'`
+      function transformImports(code) {
+        return code
+          .replace(
+            /from\s+['"](?!https?:\/\/|\.\/|\.\.\/)([\w@][^'"]*)['"]/g,
+            "from 'https://esm.sh/$1'"
+          )
+          .replace(
+            /^import\s+['"](?!https?:\/\/|\.\/|\.\.\/)([\w@][^'"]*)['"]/gm,
+            "import 'https://esm.sh/$1'"
+          );
+      }
+
+      // Reset the #container DOM between runs
+      function resetContainer() {
+        var old = document.getElementById('container');
+        var fresh = document.createElement('div');
+        fresh.id = 'container';
+        fresh.style.cssText = 'width:100%;min-height:100vh;padding:16px;';
+        if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
+      }
+
+      // Main run handler — async so we can await import()
+      async function handleRunCode(data) {
+        var exampleId = data.exampleId;
+        var libraryCode = data.libraryCode;
+        var exampleCode = data.exampleCode;
+
+        currentExampleId = exampleId;
+        resetContainer();
+
+        // 1. Transform bare imports → esm.sh URLs
+        var transformed = transformImports(libraryCode);
+
+        // 2. Load library as ES module via blob URL
+        var libBlob = new Blob([transformed], { type: 'text/javascript' });
+        var libUrl = URL.createObjectURL(libBlob);
+        var libModule;
+        try {
+          libModule = await import(libUrl);
+        } finally {
+          URL.revokeObjectURL(libUrl);
+        }
+
+        // 3. Strip static import statements from example code and replace with
+        //    variable declarations bound to the loaded library module.
+        //    This lets example code use `import * as X from 'pkg'` syntax without
+        //    needing a real module context.
+        var processedExample = exampleCode
+          // import * as X from '...' → const X = __lib__ (namespace object)
+          .replace(/^\s*import\s*\*\s*as\s+(\w+)\s+from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, name) { return 'const ' + name + ' = __lib__;'; })
+          // import X from '...' → const X = __lib__.default ?? __lib__
+          .replace(/^\s*import\s+(\w+)\s+from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, name) { return 'const ' + name + ' = __lib__.default ?? __lib__;'; })
+          // import { a, b } from '...' → const { a, b } = __lib__
+          .replace(/^\s*import\s*\{([^}]+)\}\s*from\s+['"][^'"]*['"]\s*;?\s*$/gm,
+            function (_, names) { return 'const {' + names + '} = __lib__;'; });
+
+        // 4. Run example code in async IIFE (top-level await supported)
+        var exampleFn = new Function(
+          '__lib__',
+          'return (async function __specforge_example__() {\n' + processedExample + '\n})()'
+        );
+        await exampleFn(libModule);
+      }
+
+      // Message receiver
+      window.addEventListener('message', function (event) {
+        if (!event.data || event.data.type !== 'RUN_CODE') return;
+
+        var data = event.data;
+        handleRunCode(data)
+          .then(function () {
+            window.parent.postMessage(
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'pass', error: null },
+              '*'
+            );
+          })
+          .catch(function (err) {
+            window.parent.postMessage(
+              { type: 'RUN_RESULT', exampleId: data.exampleId, status: 'fail', error: err && err.message ? err.message : String(err) },
+              '*'
+            );
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

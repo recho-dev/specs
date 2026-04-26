@@ -1,22 +1,15 @@
-"use client";
+import { lazy, Suspense, useState } from 'react'
+import type { Version } from '@/types'
+import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 
-import { useState } from "react";
-import dynamic from "next/dynamic";
-import type { Version, VersionedExample } from "@/types";
-
-const MonacoDiffEditor = dynamic(
-  () => import("@monaco-editor/react").then((m) => m.DiffEditor),
-  { ssr: false }
-);
+const MonacoDiffEditor = lazy(() =>
+  import('@monaco-editor/react').then((m) => ({ default: m.DiffEditor }))
+)
 
 interface Props {
-  version: Version;
-  currentCode: string;
-  currentExamples: VersionedExample[];
-  onClose: () => void;
+  version: Version
+  onClose: () => void
 }
-
-type Tab = "library" | string; // string = example id
 
 const DIFF_OPTIONS = {
   readOnly: true,
@@ -24,37 +17,39 @@ const DIFF_OPTIONS = {
   lineHeight: 20,
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
-  wordWrap: "on" as const,
+  wordWrap: 'on' as const,
   padding: { top: 12 },
-  renderLineHighlight: "none" as const,
+  renderLineHighlight: 'none' as const,
   overviewRulerLanes: 0,
   contextmenu: false,
   folding: false,
-};
+}
 
-export default function VersionDiffModal({ version, currentCode, currentExamples, onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>("library");
+export default function VersionDiffModal({ version, onClose }: Props) {
+  const currentLibraryCode = useWorkbenchStore((s) => s.library.code)
+  const currentExamples = useWorkbenchStore((s) => s.examples)
+  const [activeTab, setActiveTab] = useState<'library' | string>('library')
 
-  // Build unified example list: all example ids from either side
-  const versionExMap = new Map(version.examples.map((e) => [e.id, e]));
-  const currentExMap = new Map(currentExamples.map((e) => [e.id, e]));
-  const allIds = Array.from(new Set([...versionExMap.keys(), ...currentExMap.keys()]));
+  const versionExampleMap = new Map(version.examples.map((e) => [e.id, e]))
+  const currentExampleMap = new Map(currentExamples.map((e) => [e.id, e]))
 
-  // Label for each example tab: prefer current name, fallback to version name
-  const exampleLabel = (id: string) =>
-    (currentExMap.get(id) ?? versionExMap.get(id))!.name;
+  // Show tabs for any example that exists in either snapshot
+  const allExampleIds = Array.from(
+    new Set([...version.examples.map((e) => e.id), ...currentExamples.map((e) => e.id)])
+  )
 
-  // Diff values for the active tab
-  let original = "";
-  let modified = "";
+  const original =
+    activeTab === 'library'
+      ? version.libraryCode
+      : (versionExampleMap.get(activeTab)?.code ?? '')
 
-  if (activeTab === "library") {
-    original = version.libraryCode;
-    modified = currentCode;
-  } else {
-    original = versionExMap.get(activeTab)?.code ?? "";
-    modified = currentExMap.get(activeTab)?.code ?? "";
-  }
+  const modified =
+    activeTab === 'library'
+      ? currentLibraryCode
+      : (currentExampleMap.get(activeTab)?.code ?? '')
+
+  const tabLabel = (id: string) =>
+    versionExampleMap.get(id)?.name ?? currentExampleMap.get(id)?.name ?? id
 
   return (
     <div
@@ -63,18 +58,16 @@ export default function VersionDiffModal({ version, currentCode, currentExamples
     >
       <div
         className="flex flex-col bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden"
-        style={{ width: "80vw", height: "75vh" }}
+        style={{ width: '80vw', height: '75vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-indigo-400 font-mono">v{version.versionNumber}</span>
-            <span className="text-zinc-600">→</span>
-            <span className="text-zinc-400">current</span>
-            {version.refinementPrompt && (
-              <span className="text-zinc-600 text-xs truncate max-w-xs" title={version.refinementPrompt}>
-                {version.refinementPrompt}
+            {version.description && (
+              <span className="text-zinc-500 text-xs truncate max-w-sm" title={version.description}>
+                {version.description}
               </span>
             )}
           </div>
@@ -84,37 +77,49 @@ export default function VersionDiffModal({ version, currentCode, currentExamples
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-0 border-b border-zinc-800 px-4 flex-shrink-0 overflow-x-auto">
-          {[{ id: "library", label: "Library" }, ...allIds.map((id) => ({ id, label: exampleLabel(id) }))].map(
-            ({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`text-xs px-3 py-2 border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === id
-                    ? "border-indigo-500 text-zinc-200"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                {label}
-              </button>
-            )
-          )}
+        <div className="flex border-b border-zinc-800 flex-shrink-0 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`px-4 py-2 text-xs whitespace-nowrap transition-colors ${
+              activeTab === 'library'
+                ? 'text-zinc-200 border-b-2 border-indigo-500'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Library
+          </button>
+          {allExampleIds.map((id) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`px-4 py-2 text-xs whitespace-nowrap transition-colors ${
+                activeTab === id
+                  ? 'text-zinc-200 border-b-2 border-indigo-500'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {tabLabel(id)}
+            </button>
+          ))}
         </div>
 
         {/* Diff editor */}
         <div className="flex-1 min-h-0">
-          <MonacoDiffEditor
-            key={activeTab}
-            height="100%"
-            language="javascript"
-            original={original}
-            modified={modified}
-            theme="vs-dark"
-            options={DIFF_OPTIONS}
-          />
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
+              Loading…
+            </div>
+          }>
+            <MonacoDiffEditor
+              original={original}
+              modified={modified}
+              language="javascript"
+              theme="vs-dark"
+              options={DIFF_OPTIONS}
+            />
+          </Suspense>
         </div>
       </div>
     </div>
-  );
+  )
 }

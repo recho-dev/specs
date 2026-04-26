@@ -85,3 +85,33 @@ export type SpecResponse =
   | { type: "question"; question: string }
   | { type: "update"; examples: { id: string; name: string; code: string }[] }
   | { type: "passthrough" };
+
+export interface Version {
+  id: string
+  versionNumber: number
+  timestamp: number
+  description: string
+  libraryCode: string
+  examples: VersionedExample[]
+}
+
+export interface ProjectFile {
+  examples: VersionedExample[]
+  libraryCode: string
+  activeExampleId: string | null
+  viewingLibrary: boolean
+  versions: Version[]
+}
+
+export interface LoadedProject {
+  filePath: string | null
+  file: ProjectFile
+}
+
+export interface SummarizeRequestBody {
+  refinementPrompt: string
+  previousLibraryCode: string
+  currentLibraryCode: string
+  previousExamples: VersionedExample[]
+  currentExamples: VersionedExample[]
+}

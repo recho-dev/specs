@@ -1,4 +1,3 @@
-"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ExampleList from "./examples/ExampleList";
@@ -8,7 +7,7 @@ import PreviewPanel from "./preview/PreviewPanel";
 const MIN_PREVIEW = 280;
 const MAX_PREVIEW = 900;
 const DEFAULT_PREVIEW = 420;
-const LS_KEY = "spec-forge-preview-width";
+const LS_KEY = "forma-preview-width";
 
 export default function Workbench() {
   const [previewWidth, setPreviewWidth] = useState(DEFAULT_PREVIEW);
@@ -43,7 +42,7 @@ export default function Workbench() {
   }, []);
 
   return (
-    <div ref={containerRef} className="h-screen flex overflow-hidden bg-zinc-950 text-zinc-100">
+    <div ref={containerRef} className="h-full flex overflow-hidden bg-zinc-950 text-zinc-100">
       <aside className="w-52 flex-shrink-0 border-r border-zinc-800 flex flex-col">
         <ExampleList />
       </aside>

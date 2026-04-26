@@ -1,4 +1,3 @@
-"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
@@ -9,7 +8,7 @@ import ConsoleLog from "./ConsoleLog";
 const MIN_CONSOLE = 64;
 const MAX_CONSOLE = 500;
 const DEFAULT_CONSOLE = 128;
-const LS_KEY = "spec-forge-console-height";
+const LS_KEY = "forma-console-height";
 
 export default function PreviewPanel() {
   const examples = useWorkbenchStore((s) => s.examples);
