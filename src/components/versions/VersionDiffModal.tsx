@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
-import type { Version } from "@/types";
+import type { Version, VersionedExample } from "@/types";
 
 const MonacoDiffEditor = dynamic(
   () => import("@monaco-editor/react").then((m) => m.DiffEditor),
@@ -11,10 +12,50 @@ const MonacoDiffEditor = dynamic(
 interface Props {
   version: Version;
   currentCode: string;
+  currentExamples: VersionedExample[];
   onClose: () => void;
 }
 
-export default function VersionDiffModal({ version, currentCode, onClose }: Props) {
+type Tab = "library" | string; // string = example id
+
+const DIFF_OPTIONS = {
+  readOnly: true,
+  fontSize: 13,
+  lineHeight: 20,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  wordWrap: "on" as const,
+  padding: { top: 12 },
+  renderLineHighlight: "none" as const,
+  overviewRulerLanes: 0,
+  contextmenu: false,
+  folding: false,
+};
+
+export default function VersionDiffModal({ version, currentCode, currentExamples, onClose }: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>("library");
+
+  // Build unified example list: all example ids from either side
+  const versionExMap = new Map(version.examples.map((e) => [e.id, e]));
+  const currentExMap = new Map(currentExamples.map((e) => [e.id, e]));
+  const allIds = Array.from(new Set([...versionExMap.keys(), ...currentExMap.keys()]));
+
+  // Label for each example tab: prefer current name, fallback to version name
+  const exampleLabel = (id: string) =>
+    (currentExMap.get(id) ?? versionExMap.get(id))!.name;
+
+  // Diff values for the active tab
+  let original = "";
+  let modified = "";
+
+  if (activeTab === "library") {
+    original = version.libraryCode;
+    modified = currentCode;
+  } else {
+    original = versionExMap.get(activeTab)?.code ?? "";
+    modified = currentExMap.get(activeTab)?.code ?? "";
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
@@ -25,7 +66,8 @@ export default function VersionDiffModal({ version, currentCode, onClose }: Prop
         style={{ width: "80vw", height: "75vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-indigo-400 font-mono">v{version.versionNumber}</span>
             <span className="text-zinc-600">→</span>
@@ -36,34 +78,40 @@ export default function VersionDiffModal({ version, currentCode, onClose }: Prop
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-zinc-300 text-lg leading-none"
-          >
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 text-lg leading-none">
             ×
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex items-center gap-0 border-b border-zinc-800 px-4 flex-shrink-0 overflow-x-auto">
+          {[{ id: "library", label: "Library" }, ...allIds.map((id) => ({ id, label: exampleLabel(id) }))].map(
+            ({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`text-xs px-3 py-2 border-b-2 whitespace-nowrap transition-colors ${
+                  activeTab === id
+                    ? "border-indigo-500 text-zinc-200"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {label}
+              </button>
+            )
+          )}
+        </div>
+
+        {/* Diff editor */}
         <div className="flex-1 min-h-0">
           <MonacoDiffEditor
+            key={activeTab}
             height="100%"
             language="javascript"
-            original={version.libraryCode}
-            modified={currentCode}
+            original={original}
+            modified={modified}
             theme="vs-dark"
-            options={{
-              readOnly: true,
-              fontSize: 13,
-              lineHeight: 20,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              wordWrap: "on",
-              padding: { top: 12 },
-              renderLineHighlight: "none",
-              overviewRulerLanes: 0,
-              contextmenu: false,
-              folding: false,
-            }}
+            options={DIFF_OPTIONS}
           />
         </div>
       </div>
