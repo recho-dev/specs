@@ -59,6 +59,21 @@ export interface SpecConversationTurn {
   answer: string;
 }
 
+export interface VersionedExample {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface Version {
+  id: string;
+  versionNumber: number;
+  timestamp: number;
+  libraryCode: string;
+  examples: VersionedExample[];
+  refinementPrompt: string;
+}
+
 export interface SpecRequestBody {
   examples: { id: string; name: string; code: string }[];
   refinementInstruction: string;
