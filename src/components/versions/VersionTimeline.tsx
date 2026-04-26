@@ -59,14 +59,14 @@ export default function VersionTimeline() {
                       v{v.versionNumber}
                     </span>
                     <span
-                      className="text-[10px] text-zinc-600 truncate"
+                      className="text-xs text-zinc-400 truncate"
                       title={v.refinementPrompt || "Initial generation"}
                     >
                       {v.refinementPrompt || "Initial"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <span className="text-[10px] text-zinc-700">{formatAge(v.timestamp)}</span>
+                    <span className="text-[10px] text-zinc-500">{formatAge(v.timestamp)}</span>
                     <button
                       onClick={() => setDiffVersion(v)}
                       title={`Diff v${v.versionNumber} vs current`}
