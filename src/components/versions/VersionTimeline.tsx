@@ -1,33 +1,27 @@
-"use client";
-
-import { useState } from "react";
-import { useWorkbenchStore } from "@/store/useWorkbenchStore";
-import type { Version } from "@/types";
-import VersionDiffModal from "./VersionDiffModal";
+import { useState } from 'react'
+import { useWorkbenchStore } from '@/store/useWorkbenchStore'
+import type { Version } from '@/types'
+import VersionDiffModal from './VersionDiffModal'
 
 function formatAge(timestamp: number): string {
-  const s = Math.floor((Date.now() - timestamp) / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  const s = Math.floor((Date.now() - timestamp) / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
 export default function VersionTimeline() {
-  const versions = useWorkbenchStore((s) => s.versions);
-  const activeVersionId = useWorkbenchStore((s) => s.activeVersionId);
-  const restoreVersion = useWorkbenchStore((s) => s.restoreVersion);
-  const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
-  const currentCode = useWorkbenchStore((s) => s.library.code);
-  const currentExamples = useWorkbenchStore((s) => s.examples);
-  const [open, setOpen] = useState(false);
-  const [diffVersion, setDiffVersion] = useState<Version | null>(null);
+  const versions = useWorkbenchStore((s) => s.versions)
+  const activeVersionId = useWorkbenchStore((s) => s.activeVersionId)
+  const restoreVersion = useWorkbenchStore((s) => s.restoreVersion)
+  const isGenerating = useWorkbenchStore((s) => s.library.isGenerating)
+  const [open, setOpen] = useState(false)
+  const [diffVersion, setDiffVersion] = useState<Version | null>(null)
 
-  if (versions.length === 0) return null;
-
-  const sorted = [...versions].reverse();
+  if (versions.length === 0) return null
 
   return (
     <>
@@ -37,7 +31,7 @@ export default function VersionTimeline() {
           className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           <span className="flex items-center gap-1">
-            <span className={`transition-transform inline-block ${open ? "rotate-90" : ""}`}>▸</span>
+            <span className={`transition-transform inline-block ${open ? 'rotate-90' : ''}`}>▸</span>
             History
           </span>
           <span className="text-zinc-600">{versions.length}</span>
@@ -45,28 +39,24 @@ export default function VersionTimeline() {
 
         {open && (
           <div className="max-h-[160px] overflow-y-auto pb-1">
-            {sorted.map((v) => {
-              const isCurrent = v.id === activeVersionId;
+            {versions.map((v) => {
+              const isCurrent = v.id === activeVersionId
               return (
                 <div
                   key={v.id}
                   className={`group flex items-center justify-between px-3 py-1.5 ${
-                    isCurrent ? "bg-zinc-800" : "hover:bg-zinc-800/50"
+                    isCurrent ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
                   }`}
                 >
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className={`text-xs font-mono ${isCurrent ? "text-indigo-400" : "text-zinc-400"}`}>
+                    <span className={`text-xs font-mono ${isCurrent ? 'text-indigo-400' : 'text-zinc-400'}`}>
                       v{v.versionNumber}
                     </span>
                     <span
-                      className={`text-xs truncate ${v.description ? "text-zinc-400" : "text-zinc-600 italic"}`}
-                      title={v.description ?? v.refinementPrompt ?? ""}
+                      className={`text-xs truncate ${v.description ? 'text-zinc-400' : 'text-zinc-600 italic'}`}
+                      title={v.description}
                     >
-                      {v.description === undefined
-                        ? (v.refinementPrompt || "—")
-                        : v.description === ""
-                        ? "Summarizing…"
-                        : v.description}
+                      {v.description || 'Summarizing…'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -88,7 +78,7 @@ export default function VersionTimeline() {
                     </button>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         )}
@@ -97,11 +87,9 @@ export default function VersionTimeline() {
       {diffVersion && (
         <VersionDiffModal
           version={diffVersion}
-          currentCode={currentCode}
-          currentExamples={currentExamples}
           onClose={() => setDiffVersion(null)}
         />
       )}
     </>
-  );
+  )
 }

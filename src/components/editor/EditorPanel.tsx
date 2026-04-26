@@ -1,4 +1,3 @@
-"use client";
 
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import ExampleTabs from "./ExampleTabs";

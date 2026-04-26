@@ -1,4 +1,3 @@
-"use client";
 
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import ExampleItem from "./ExampleItem";
@@ -16,8 +15,17 @@ export default function ExampleList() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-3 border-b border-zinc-800">
-        <h1 className="text-sm font-semibold text-zinc-300 tracking-wide">spec-forge</h1>
+      {/* Traffic light drag region — 36px top clearance for macOS buttons */}
+      <div
+        className="h-9 flex-shrink-0 flex items-end px-3 pb-2 border-b border-zinc-800"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
+        <h1
+          className="text-sm font-semibold text-zinc-300 tracking-wide"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          Forma
+        </h1>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">

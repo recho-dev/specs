@@ -1,4 +1,3 @@
-"use client";
 
 import { useRef, useEffect } from "react";
 
@@ -43,7 +42,7 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVi
   return (
     <iframe
       ref={iframeRef}
-      src="/sandbox.html"
+      src="app://./sandbox.html"
       sandbox="allow-scripts allow-same-origin"
       onLoad={handleLoad}
       style={{ display: isVisible ? "block" : "none" }}

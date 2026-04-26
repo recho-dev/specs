@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useRef, useEffect } from "react";
 import type { Example } from "@/types";

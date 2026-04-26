@@ -1,0 +1,37 @@
+import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, SummarizeRequestBody } from '@/types'
+
+const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI
+
+interface ElectronAPI {
+  generateStart: (body: GenerateRequestBody) => Promise<void>
+  onGenerateChunk: (cb: (chunk: string) => void) => void
+  onGenerateDone: (cb: () => void) => void
+  onGenerateError: (cb: (err: string) => void) => void
+  offGenerateListeners: () => void
+  invokeSpec: (body: SpecRequestBody) => Promise<SpecResponse>
+  invokeSummarize: (body: SummarizeRequestBody) => Promise<{ description: string }>
+  projectNew: () => Promise<LoadedProject>
+  projectOpen: () => Promise<LoadedProject | null>
+  projectSave: (file: ProjectFile) => Promise<string | null>
+  getApiKey: () => Promise<string>
+  setApiKey: (key: string) => Promise<void>
+  onMenu: (event: string, cb: () => void) => void
+  offMenu: (event: string) => void
+}
+
+export const ipc = {
+  generateStart: (body: GenerateRequestBody) => api().generateStart(body),
+  onGenerateChunk: (cb: (chunk: string) => void) => api().onGenerateChunk(cb),
+  onGenerateDone: (cb: () => void) => api().onGenerateDone(cb),
+  onGenerateError: (cb: (err: string) => void) => api().onGenerateError(cb),
+  offGenerateListeners: () => api().offGenerateListeners(),
+  invokeSpec: (body: SpecRequestBody) => api().invokeSpec(body),
+  invokeSummarize: (body: SummarizeRequestBody) => api().invokeSummarize(body),
+  projectNew: () => api().projectNew(),
+  projectOpen: () => api().projectOpen(),
+  projectSave: (file: ProjectFile) => api().projectSave(file),
+  getApiKey: () => api().getApiKey(),
+  setApiKey: (key: string) => api().setApiKey(key),
+  onMenu: (event: string, cb: () => void) => api().onMenu(event, cb),
+  offMenu: (event: string) => api().offMenu(event),
+}
