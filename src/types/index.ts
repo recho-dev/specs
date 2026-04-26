@@ -72,6 +72,7 @@ export interface Version {
   libraryCode: string;
   examples: VersionedExample[];
   refinementPrompt: string;
+  description: string;
 }
 
 export interface SpecRequestBody {
