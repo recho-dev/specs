@@ -53,3 +53,19 @@ export interface GenerateRequestBody {
   refinementInstruction: string;
   failedExamples: { name: string; code: string; error: string }[];
 }
+
+export interface SpecConversationTurn {
+  question: string;
+  answer: string;
+}
+
+export interface SpecRequestBody {
+  examples: { id: string; name: string; code: string }[];
+  refinementInstruction: string;
+  conversationHistory: SpecConversationTurn[];
+}
+
+export type SpecResponse =
+  | { type: "question"; question: string }
+  | { type: "update"; examples: { id: string; name: string; code: string }[] }
+  | { type: "passthrough" };

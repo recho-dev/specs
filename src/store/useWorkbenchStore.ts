@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
-import type { Example, LibraryState, ConsoleLine, GenerateRequestBody } from "@/types";
+import type { Example, LibraryState, ConsoleLine, GenerateRequestBody, SpecRequestBody, SpecResponse, SpecConversationTurn } from "@/types";
 import { extractCodeFromBuffer } from "@/lib/sandbox";
 
 const DEFAULT_EXAMPLE_CODE = `// Write how you want to use the library here
@@ -38,8 +38,16 @@ interface WorkbenchStore {
   clearStreamBuffer: () => void;
   setGenerationError: (error: string | null) => void;
 
+  // spec agent state
+  specQuestion: string | null;
+  specConversationHistory: SpecConversationTurn[];
+  pendingRefinementInstruction: string;
+
   // orchestration
   generate: (refinement?: string) => Promise<void>;
+  refine: (instruction: string) => Promise<void>;
+  answerSpecQuestion: (answer: string) => Promise<void>;
+  _handleSpecResponse: (data: SpecResponse) => Promise<void>;
 }
 
 export const useWorkbenchStore = create<WorkbenchStore>()(
@@ -54,6 +62,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       },
       activeExampleId: null,
       viewingLibrary: false,
+      specQuestion: null,
+      specConversationHistory: [],
+      pendingRefinementInstruction: "",
 
       addExample: () => {
         const id = nanoid();
@@ -164,6 +175,110 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           state.library.isGenerating = false;
           state.library.streamBuffer = "";
         });
+      },
+
+      refine: async (instruction) => {
+        const state = get();
+        if (state.examples.length === 0) return;
+
+        set((s) => {
+          s.library.isGenerating = true;
+          s.library.generationError = null;
+          s.specConversationHistory = [];
+          s.pendingRefinementInstruction = instruction;
+          s.specQuestion = null;
+        });
+
+        try {
+          const body: SpecRequestBody = {
+            examples: state.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
+            refinementInstruction: instruction,
+            conversationHistory: [],
+          };
+          const res = await fetch("/api/spec", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            get().setGenerationError(`Spec agent failed: ${await res.text()}`);
+            return;
+          }
+          await get()._handleSpecResponse(await res.json());
+        } catch (err) {
+          get().setGenerationError(err instanceof Error ? err.message : "Spec agent failed");
+        }
+      },
+
+      answerSpecQuestion: async (answer) => {
+        const state = get();
+        const history: SpecConversationTurn[] = [
+          ...state.specConversationHistory,
+          { question: state.specQuestion!, answer },
+        ];
+
+        set((s) => {
+          s.specConversationHistory = history;
+          s.specQuestion = null;
+          s.library.isGenerating = true;
+          s.library.generationError = null;
+        });
+
+        try {
+          const body: SpecRequestBody = {
+            examples: state.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
+            refinementInstruction: state.pendingRefinementInstruction,
+            conversationHistory: history,
+          };
+          const res = await fetch("/api/spec", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            get().setGenerationError(`Spec agent failed: ${await res.text()}`);
+            return;
+          }
+          await get()._handleSpecResponse(await res.json());
+        } catch (err) {
+          get().setGenerationError(err instanceof Error ? err.message : "Spec agent failed");
+        }
+      },
+
+      _handleSpecResponse: async (data) => {
+        if (data.type === "question") {
+          set((s) => {
+            s.specQuestion = data.question;
+            s.library.isGenerating = false;
+          });
+          return;
+        }
+
+        const pendingInstruction = get().pendingRefinementInstruction;
+
+        if (data.type === "update") {
+          set((s) => {
+            for (const updated of data.examples) {
+              const ex = s.examples.find((e) => e.id === updated.id);
+              if (ex) {
+                ex.name = updated.name;
+                ex.code = updated.code;
+              }
+            }
+            s.specQuestion = null;
+            s.specConversationHistory = [];
+            s.pendingRefinementInstruction = "";
+          });
+        } else {
+          // passthrough: clear spec state, examples unchanged
+          set((s) => {
+            s.specQuestion = null;
+            s.specConversationHistory = [];
+            s.pendingRefinementInstruction = "";
+          });
+        }
+
+        await get().generate(pendingInstruction);
       },
 
       generate: async (refinement = "") => {
