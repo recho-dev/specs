@@ -81,13 +81,13 @@ export const SPEC_SYSTEM_PROMPT = `You are a JavaScript library API design consu
 
 1. {"type":"question","question":"..."} — ask ONE clarifying question when the instruction changes the API in a way that conflicts with existing examples AND you cannot pick a sensible default (e.g. old API vs new API — which to keep?). Max 1 question per response.
 
-2. {"type":"update","examples":[{"id":"...","name":"...","code":"..."}]} — apply changes and return ALL examples (including unchanged ones). Use this when:
-   - An instruction changes API shape (method names, argument structure, option keys) — apply it to all affected examples
-   - No instruction given but examples have cross-example API inconsistencies (e.g. one uses chart.data(), another uses chart.setData()) — normalize them
+2. {"type":"update","examples":[{"id":"...","name":"...","code":"..."}]} — apply changes and return ALL examples (including unchanged ones). Use this when an instruction clearly changes API shape (method names, argument structure, option keys) — apply it to all affected examples.
 
 3. {"type":"passthrough"} — use this when:
    - The instruction is about implementation/behavior, not API shape (e.g. "make default color red", "fix the animation", "increase padding")
-   - No instruction given and examples are already consistent
+   - No instruction given and examples are consistent with each other
+
+IMPORTANT: Never silently rewrite or normalize examples. If you detect any conflict or inconsistency — whether from an instruction or across examples — always ask the user via a question. Only apply changes via "update" when the user's intent is explicit and unambiguous.
 
 Return ONLY valid JSON. No markdown, no explanation.`;
 
