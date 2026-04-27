@@ -12,14 +12,6 @@ function getBasename(p: string): string {
   return base.replace(/\.[^/.]+$/, '') || base
 }
 
-function ExportIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M7 1v8M4 6l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M2 10v1.5A1.5 1.5 0 003.5 13h7A1.5 1.5 0 0012 11.5V10" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export default function App() {
   const [exportOpen, setExportOpen] = useState(false)
@@ -83,11 +75,10 @@ export default function App() {
           <div className="absolute inset-y-0 right-0 flex items-center pr-5">
             <button
               onClick={() => setExportOpen(true)}
-              title="Export package"
               style={{
-                width: 24, height: 24, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', border: 'none', background: 'none',
+                height: 24, padding: '0 10px', border: 'none', background: 'none',
                 color: '#8A8780', borderRadius: 4, cursor: 'pointer',
+                fontSize: 12, fontWeight: 600,
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = '#DDD9D2'
@@ -98,7 +89,7 @@ export default function App() {
                 ;(e.currentTarget as HTMLButtonElement).style.color = '#8A8780'
               }}
             >
-              <ExportIcon />
+              Export
             </button>
           </div>
         )}
