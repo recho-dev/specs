@@ -84,17 +84,13 @@ function buildPackageJson(meta: ExportMeta, dependencies: Record<string, string>
     name: meta.name,
     version: meta.version || '1.0.0',
     description: meta.description ?? '',
-    main: `dist/${meta.name}.umd.js`,
-    module: `dist/${meta.name}.esm.js`,
-    exports: {
-      '.': {
-        import: `./dist/${meta.name}.esm.js`,
-        require: `./dist/${meta.name}.umd.js`,
-      },
-    },
-    files: ['dist', 'src'],
+    main: 'src/index.js',
+    module: 'src/index.js',
+    jsdelivr: `dist/${meta.name}.umd.min.js`,
+    unpkg: `dist/${meta.name}.umd.min.js`,
+    files: ['src', 'dist'],
     scripts: {
-      build: 'rspack build',
+      build: 'rm -rf dist && rspack build',
       prepublishOnly: 'npm run build',
     },
     license: meta.license || 'MIT',
@@ -116,28 +112,16 @@ function buildPackageJson(meta: ExportMeta, dependencies: Record<string, string>
 function buildRspackConfig(name: string, namespace: string): string {
   return `const path = require('path')
 
-module.exports = [
-  {
-    entry: './src/index.js',
-    output: {
-      path: path.resolve(__dirname, 'dist'),
-      filename: '${name}.umd.js',
-      library: { name: '${namespace}', type: 'umd' },
-      globalObject: 'this',
-    },
-    mode: 'production',
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '${name}.umd.min.js',
+    library: { name: '${namespace}', type: 'umd' },
+    globalObject: 'this',
   },
-  {
-    entry: './src/index.js',
-    experiments: { outputModule: true },
-    output: {
-      path: path.resolve(__dirname, 'dist'),
-      filename: '${name}.esm.js',
-      library: { type: 'module' },
-    },
-    mode: 'production',
-  },
-]
+  mode: 'production',
+}
 `
 }
 
