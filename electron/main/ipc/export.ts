@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, BrowserWindow, net } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import Anthropic from '@anthropic-ai/sdk'
@@ -12,8 +12,8 @@ export function setMainWindow(win: BrowserWindow): void {
 }
 
 // Scan library code for third-party import/require specifiers
-function detectDependencies(code: string): Record<string, string> {
-  const deps: Record<string, string> = {}
+function detectDependencies(code: string): string[] {
+  const pkgs = new Set<string>()
 
   function addSpecifier(specifier: string) {
     if (specifier.startsWith('.') || specifier.startsWith('/')) return
@@ -25,7 +25,7 @@ function detectDependencies(code: string): Record<string, string> {
     } else {
       pkg = specifier.split('/')[0]
     }
-    if (!deps[pkg]) deps[pkg] = '*'
+    pkgs.add(pkg)
   }
 
   const esm = /\bimport\b[^'"]*['"]([^'"]+)['"]/g
@@ -33,7 +33,24 @@ function detectDependencies(code: string): Record<string, string> {
   let m
   while ((m = esm.exec(code)) !== null) addSpecifier(m[1])
   while ((m = cjs.exec(code)) !== null) addSpecifier(m[1])
-  return deps
+  return [...pkgs]
+}
+
+async function resolveDependencyVersions(packages: string[]): Promise<Record<string, string>> {
+  if (packages.length === 0) return {}
+  const entries = await Promise.all(
+    packages.map(async (pkg): Promise<[string, string]> => {
+      try {
+        const res = await net.fetch(`https://registry.npmjs.org/${encodeURIComponent(pkg)}/latest`)
+        if (res.ok) {
+          const data = await res.json() as { version?: string }
+          if (data.version) return [pkg, `^${data.version}`]
+        }
+      } catch {}
+      return [pkg, '*']
+    })
+  )
+  return Object.fromEntries(entries)
 }
 
 function buildGitignore(): string {
@@ -225,7 +242,7 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
 
   try {
     const namespace = detectNamespace(body.examples, body.meta.name)
-    const dependencies = detectDependencies(body.libraryCode)
+    const dependencies = await resolveDependencyVersions(detectDependencies(body.libraryCode))
 
     await fs.mkdir(join(packageDir, 'src'), { recursive: true })
     await fs.writeFile(join(packageDir, 'src', 'index.js'), body.libraryCode, 'utf-8')
