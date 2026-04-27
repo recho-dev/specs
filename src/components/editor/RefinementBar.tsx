@@ -40,17 +40,17 @@ export default function RefinementBar({ isGenerating, hasExamples, specQuestion,
   }, [isAnswering]);
 
   return (
-    <div className="flex flex-col border-t border-zinc-800 bg-zinc-950">
+    <div className="flex flex-col border-t border-zinc-200 bg-white">
       {specQuestion && (
-        <div className="px-3 py-2 border-b border-indigo-900 bg-indigo-950/60 text-xs text-indigo-300 leading-relaxed">
-          <span className="font-semibold text-indigo-400">Claude asks: </span>
+        <div className="px-3 py-2 border-b border-indigo-200 bg-indigo-50 text-xs text-indigo-800 leading-relaxed">
+          <span className="font-semibold text-indigo-700">Claude asks: </span>
           {specQuestion}
         </div>
       )}
       <div className="flex items-center gap-2 px-3 py-2">
         <input
           ref={inputRef}
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-indigo-500 transition-colors"
+          className="flex-1 bg-white border border-zinc-300 rounded-md px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 transition-colors"
           placeholder={isAnswering ? "Your answer..." : 'Refine: "add animation", "use canvas", ...'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -60,7 +60,7 @@ export default function RefinementBar({ isGenerating, hasExamples, specQuestion,
         <button
           onClick={handleSubmit}
           disabled={isGenerating || (!hasExamples && !isAnswering)}
-          className="flex-shrink-0 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-md px-3 py-1.5 transition-colors"
+          className="flex-shrink-0 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-200 text-white disabled:text-zinc-500 rounded-md px-3 py-1.5 transition-colors"
           title="Generate (⌘Enter)"
         >
           {isGenerating ? "..." : isAnswering ? "↩ Answer" : "▶ Generate"}

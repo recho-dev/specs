@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Claude: non-streaming
   invokeSpec: (body: SpecRequestBody): Promise<SpecResponse> =>
     ipcRenderer.invoke('claude:spec', body),
-  invokeSummarize: (body: unknown): Promise<{ description: string }> =>
+  invokeSummarize: (body: unknown): Promise<{ description: string; aiMessage: string }> =>
     ipcRenderer.invoke('claude:summarize', body),
 
   // Project
@@ -31,10 +31,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('project:save', file),
 
   // Settings
-  getApiKey: (): Promise<string> =>
-    ipcRenderer.invoke('settings:get-api-key'),
+  hasApiKey: (): Promise<boolean> =>
+    ipcRenderer.invoke('settings:has-api-key'),
   setApiKey: (key: string): Promise<void> =>
     ipcRenderer.invoke('settings:set-api-key', key),
+  validateApiKey: (key: string): Promise<{ valid: true } | { valid: false; reason: string }> =>
+    ipcRenderer.invoke('settings:validate-api-key', key),
 
   // Menu events from main process
   onMenu: (event: string, cb: () => void) =>

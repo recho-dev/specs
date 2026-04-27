@@ -1,20 +1,8 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain } from 'electron'
 import Anthropic from '@anthropic-ai/sdk'
-import { promises as fs } from 'fs'
-import { join } from 'path'
 import { SYSTEM_PROMPT, buildGenerationMessages, SPEC_SYSTEM_PROMPT, buildSpecMessages } from '@/lib/prompts'
 import type { GenerateRequestBody, SpecRequestBody, SpecResponse, SummarizeRequestBody, VersionedExample } from '@/types'
-
-const settingsPath = join(app.getPath('userData'), 'settings.json')
-
-async function getApiKey(): Promise<string> {
-  try {
-    const raw = await fs.readFile(settingsPath, 'utf-8')
-    return JSON.parse(raw).apiKey ?? ''
-  } catch {
-    return ''
-  }
-}
+import { readApiKey } from './keystore'
 
 function buildDiffSummary(body: SummarizeRequestBody): string {
   const parts: string[] = []
@@ -45,7 +33,7 @@ function buildDiffSummary(body: SummarizeRequestBody): string {
 }
 
 ipcMain.handle('claude:generate', async (event, body: GenerateRequestBody) => {
-  const apiKey = await getApiKey()
+  const apiKey = await readApiKey()
   if (!apiKey) {
     event.sender.send('claude:generate:error', 'API key not configured. Go to Settings > API Key to add your Anthropic key.')
     return
@@ -75,7 +63,7 @@ ipcMain.handle('claude:generate', async (event, body: GenerateRequestBody) => {
 })
 
 ipcMain.handle('claude:spec', async (_e, body: SpecRequestBody): Promise<SpecResponse> => {
-  const apiKey = await getApiKey()
+  const apiKey = await readApiKey()
   if (!apiKey) {
     return { type: 'passthrough' }
   }
@@ -96,21 +84,25 @@ ipcMain.handle('claude:spec', async (_e, body: SpecRequestBody): Promise<SpecRes
   }
 })
 
-ipcMain.handle('claude:summarize', async (_e, body: SummarizeRequestBody): Promise<{ description: string }> => {
-  const apiKey = await getApiKey()
-  if (!apiKey) return { description: body.refinementPrompt || 'Generated' }
+ipcMain.handle('claude:summarize', async (_e, body: SummarizeRequestBody): Promise<{ description: string; aiMessage: string }> => {
+  const apiKey = await readApiKey()
+  if (!apiKey) return { description: body.refinementPrompt || 'Generated', aiMessage: '' }
 
   const client = new Anthropic({ apiKey })
   const context = buildDiffSummary(body)
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 64,
+    max_tokens: 256,
     system:
-      'You summarize code generation changes in one short phrase (under 8 words). No punctuation at the end. Be specific and concrete. Examples: \'Added animation to bar chart\', \'Switched rendering from canvas to SVG\', \'Fixed tooltip positioning bug\', \'Initial bar chart generation\'.',
+      'You summarize what was accomplished in a code generation step. Respond with two parts separated by "|||": first, a short version label (under 8 words, no punctuation at end, e.g. "Initial bar chart generation"); second, 2-3 sentences describing what was built or changed and why it matters, written directly to the developer. Be specific and concrete.',
     messages: [{ role: 'user', content: context }],
   })
 
-  const description = response.content[0]?.type === 'text' ? response.content[0].text.trim() : 'Updated'
-  return { description }
+  const text = response.content[0]?.type === 'text' ? response.content[0].text.trim() : ''
+  const [label, message] = text.split('|||').map((s) => s.trim())
+  return {
+    description: label || body.refinementPrompt || 'Generated',
+    aiMessage: message || '',
+  }
 })

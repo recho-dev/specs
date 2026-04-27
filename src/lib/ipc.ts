@@ -9,12 +9,13 @@ interface ElectronAPI {
   onGenerateError: (cb: (err: string) => void) => void
   offGenerateListeners: () => void
   invokeSpec: (body: SpecRequestBody) => Promise<SpecResponse>
-  invokeSummarize: (body: SummarizeRequestBody) => Promise<{ description: string }>
+  invokeSummarize: (body: SummarizeRequestBody) => Promise<{ description: string; aiMessage: string }>
   projectNew: () => Promise<LoadedProject>
   projectOpen: () => Promise<LoadedProject | null>
   projectSave: (file: ProjectFile) => Promise<string | null>
-  getApiKey: () => Promise<string>
+  hasApiKey: () => Promise<boolean>
   setApiKey: (key: string) => Promise<void>
+  validateApiKey: (key: string) => Promise<{ valid: true } | { valid: false; reason: string }>
   onMenu: (event: string, cb: () => void) => void
   offMenu: (event: string) => void
 }
@@ -30,8 +31,9 @@ export const ipc = {
   projectNew: () => api().projectNew(),
   projectOpen: () => api().projectOpen(),
   projectSave: (file: ProjectFile) => api().projectSave(file),
-  getApiKey: () => api().getApiKey(),
+  hasApiKey: () => api().hasApiKey(),
   setApiKey: (key: string) => api().setApiKey(key),
+  validateApiKey: (key: string) => api().validateApiKey(key),
   onMenu: (event: string, cb: () => void) => api().onMenu(event, cb),
   offMenu: (event: string) => api().offMenu(event),
 }

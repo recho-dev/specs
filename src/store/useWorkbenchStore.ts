@@ -43,6 +43,10 @@ interface WorkbenchStore {
   versions: Version[]
   activeVersionId: string | null
 
+  aiMessage: string | null
+  aiMessageLoading: boolean
+  dismissAiMessage: () => void
+
   addExample: () => void
   removeExample: (id: string) => void
   renameExample: (id: string, name: string) => void
@@ -96,6 +100,16 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     pendingRefinementInstruction: '',
     versions: [],
     activeVersionId: null,
+
+    aiMessage: null,
+    aiMessageLoading: false,
+
+    dismissAiMessage: () => {
+      set((s) => {
+        s.aiMessage = null
+        s.aiMessageLoading = false
+      })
+    },
 
     loadProject: (project: LoadedProject) => {
       const { file } = project
@@ -301,6 +315,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
       await ipc.projectSave(get().buildProjectFile())
 
+      set((s) => { s.aiMessageLoading = true })
+
       // Async: get a richer description and update
       ipc.invokeSummarize({
         refinementPrompt,
@@ -309,13 +325,19 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         previousExamples: priorExamples,
         currentExamples,
       })
-        .then(({ description }) => {
+        .then(({ description, aiMessage }) => {
           if (description) {
             get()._updateVersionDescription(versionId, description)
             ipc.projectSave(get().buildProjectFile()).catch(() => {})
           }
+          set((s) => {
+            s.aiMessage = aiMessage || null
+            s.aiMessageLoading = false
+          })
         })
-        .catch(() => {})
+        .catch(() => {
+          set((s) => { s.aiMessageLoading = false })
+        })
     },
 
     restoreVersion: async (id) => {
@@ -474,6 +496,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.library.generationError = null
         s.library.streamBuffer = ''
         s.viewingLibrary = true
+        s.aiMessage = null
+        s.aiMessageLoading = false
         s.examples.forEach((e) => {
           e.status = 'running'
           e.consoleOutput = []

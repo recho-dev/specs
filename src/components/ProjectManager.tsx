@@ -2,10 +2,6 @@ import { useEffect } from 'react'
 import { ipc } from '@/lib/ipc'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 
-interface Props {
-  onOpenSettings: () => void
-}
-
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
   let timer: ReturnType<typeof setTimeout>
   return ((...args: unknown[]) => {
@@ -14,7 +10,7 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
   }) as T
 }
 
-export default function ProjectManager({ onOpenSettings }: Props) {
+export default function ProjectManager() {
   const loadProject = useWorkbenchStore((s) => s.loadProject)
   const unloadProject = useWorkbenchStore((s) => s.unloadProject)
   const setProjectPath = useWorkbenchStore((s) => s.setProjectPath)
@@ -50,15 +46,12 @@ export default function ProjectManager({ onOpenSettings }: Props) {
       if (filePath && !state.projectPath) setProjectPath(filePath)
     })
 
-    ipc.onMenu('open-settings', onOpenSettings)
-
     return () => {
       ipc.offMenu('new-project')
       ipc.offMenu('open-project')
       ipc.offMenu('save-project')
-      ipc.offMenu('open-settings')
     }
-  }, [loadProject, unloadProject, onOpenSettings])
+  }, [loadProject, unloadProject])
 
   return null
 }
