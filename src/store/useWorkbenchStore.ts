@@ -16,6 +16,7 @@ import type {
   ProjectFile,
   LoadedProject,
   ExampleStatus,
+  ExportMeta,
 } from '@/types'
 
 const MAX_VERSIONS = 50
@@ -44,6 +45,9 @@ interface WorkbenchStore {
   activeVersionId: string | null
 
   generationId: number
+
+  exportMeta: ExportMeta | null
+  setExportMeta: (meta: ExportMeta) => void
 
   aiMessage: string | null
   aiMessageLoading: boolean
@@ -101,6 +105,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     specConversationHistory: [],
     pendingRefinementInstruction: '',
     generationId: 0,
+    exportMeta: null,
     versions: [],
     activeVersionId: null,
 
@@ -138,6 +143,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           error: null,
           consoleOutput: [],
         }))
+        s.exportMeta = file.exportMeta ?? null
       })
     },
 
@@ -154,6 +160,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.specQuestion = null
         s.specConversationHistory = []
         s.pendingRefinementInstruction = ''
+        s.exportMeta = null
       })
     },
 
@@ -169,7 +176,12 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         activeExampleId: s.activeExampleId,
         viewingLibrary: s.viewingLibrary,
         versions: s.versions,
+        ...(s.exportMeta ? { exportMeta: s.exportMeta } : {}),
       }
+    },
+
+    setExportMeta: (meta: ExportMeta) => {
+      set((s) => { s.exportMeta = meta })
     },
 
     addExample: () => {
