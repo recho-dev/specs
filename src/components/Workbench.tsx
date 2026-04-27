@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
 import { ipc } from "@/lib/ipc";
+import { readPanelLayout, savePanelLayout } from "@/lib/panelLayout";
 import CodeEditor from "./editor/CodeEditor";
 import PreviewPanel from "./preview/PreviewPanel";
 import AIPanel, { type AIPanelMode, type ApiKeyStatus } from "./AIPanel";
@@ -39,19 +40,20 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-function CopyIcon() {
+function CollapseLeftIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <rect x="4" y="4" width="7" height="7" rx="1.2" />
-      <path d="M8 4V2.5A1.5 1.5 0 006.5 1H2.5A1.5 1.5 0 001 2.5v4A1.5 1.5 0 002.5 8H4" />
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 2.5L4 6l3 3.5" />
+      <line x1="2" y1="2" x2="2" y2="10" />
     </svg>
   );
 }
 
-function CheckIcon() {
+function ExpandRightIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#1E8847" strokeWidth="1.8">
-      <path d="M1.5 5.5l3 3 5-5" />
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 2.5L8 6l-3 3.5" />
+      <line x1="10" y1="2" x2="10" y2="10" />
     </svg>
   );
 }
@@ -185,6 +187,7 @@ function AddExampleButton({ onClick }: { onClick: () => void }) {
 }
 
 export default function Workbench() {
+  const projectPath = useWorkbenchStore((s) => s.projectPath);
   const examples = useWorkbenchStore((s) => s.examples);
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
@@ -206,7 +209,16 @@ export default function Workbench() {
   const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState(false);
+  const sourcePanelRef   = useRef<PanelImperativeHandle | null>(null);
+  const examplesPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const previewPanelRef  = useRef<PanelImperativeHandle | null>(null);
+  const sourceElementRef = useRef<HTMLDivElement | null>(null);
+  const isAnimating      = useRef(false);
+  const animationTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimer        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sourceCollapsed, setSourceCollapsed] = useState(false);
+  const [showVerticalBar, setShowVerticalBar] = useState(false);
+  const [lastSourceSize, setLastSourceSize] = useState(30);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [apiKeyRequested, setApiKeyRequested] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -255,6 +267,48 @@ export default function Workbench() {
     }
   }, [footerMode]);
 
+  useEffect(() => () => cancelAnimation(), []);
+
+  // Restore saved panel layout when a project is opened
+  useEffect(() => {
+    if (!projectPath) return;
+    const layout = readPanelLayout(projectPath);
+    const t = setTimeout(() => {
+      if (layout.sourceCollapsed) {
+        setShowVerticalBar(true);
+        setSourceCollapsed(true);
+        setLastSourceSize(layout.sourceSize ?? 30);
+        sourcePanelRef.current?.collapse();
+        if (layout.examplesSize != null) examplesPanelRef.current?.resize(`${layout.examplesSize}`);
+        if (layout.previewSize != null) previewPanelRef.current?.resize(`${layout.previewSize}`);
+      } else {
+        if (layout.sourceSize != null) sourcePanelRef.current?.resize(`${layout.sourceSize}`);
+        if (layout.examplesSize != null) examplesPanelRef.current?.resize(`${layout.examplesSize}`);
+        if (layout.previewSize != null) previewPanelRef.current?.resize(`${layout.previewSize}`);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [projectPath]);
+
+  function saveHorizontalSizes() {
+    if (!projectPath) return;
+    const collapsed = sourcePanelRef.current?.isCollapsed() ?? false;
+    const examplesSize = examplesPanelRef.current?.getSize().asPercentage;
+    const previewSize = previewPanelRef.current?.getSize().asPercentage;
+    if (examplesSize == null || previewSize == null) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      if (collapsed) {
+        // Don't overwrite sourceSize — only update the other two
+        savePanelLayout(projectPath, { examplesSize, previewSize });
+      } else {
+        const sourceSize = sourcePanelRef.current?.getSize().asPercentage;
+        if (sourceSize == null) return;
+        savePanelLayout(projectPath, { sourceSize, examplesSize, previewSize });
+      }
+    }, 300);
+  }
+
   async function handleSaveApiKey(key: string) {
     setIsSaving(true);
     setApiKeyStatus(null);
@@ -280,11 +334,71 @@ export default function Workbench() {
     dismissAiMessage();
   }
 
-  function handleCopy() {
-    if (!libraryCode) return;
-    navigator.clipboard.writeText(libraryCode).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const ANIM_MS = 260;
+
+  function applyTransition() {
+    if (sourceElementRef.current)
+      sourceElementRef.current.style.transition = "flex 0.25s cubic-bezier(0.4,0,0.2,1)";
+  }
+
+  function clearTransition() {
+    if (sourceElementRef.current)
+      sourceElementRef.current.style.transition = "";
+  }
+
+  function cancelAnimation() {
+    if (animationTimer.current) { clearTimeout(animationTimer.current); animationTimer.current = null; }
+    clearTransition();
+    isAnimating.current = false;
+  }
+
+  function handleCollapseWithEqualDistribution(sourceSize: number) {
+    const exSize = examplesPanelRef.current?.getSize().asPercentage ?? 40;
+    const prSize = previewPanelRef.current?.getSize().asPercentage ?? 30;
+    const half = sourceSize / 2;
+    const newExSize = exSize + half;
+    const newPrSize = prSize + half;
+    sourcePanelRef.current?.collapse();
+    examplesPanelRef.current?.resize(`${newExSize}`);
+    previewPanelRef.current?.resize(`${newPrSize}`);
+    // Save the post-collapse sizes so restore can apply them correctly
+    if (projectPath) savePanelLayout(projectPath, { examplesSize: newExSize, previewSize: newPrSize });
+  }
+
+  function handleExpandWithEqualDistribution() {
+    const exSize = examplesPanelRef.current?.getSize().asPercentage ?? 50;
+    const prSize = previewPanelRef.current?.getSize().asPercentage ?? 50;
+    const half = lastSourceSize / 2;
+    sourcePanelRef.current?.resize(`${lastSourceSize}`);
+    examplesPanelRef.current?.resize(`${Math.max(exSize - half, 20)}`);
+    previewPanelRef.current?.resize(`${Math.max(prSize - half, 18)}`);
+  }
+
+  function handleToggleSource() {
+    cancelAnimation();
+    if (sourceCollapsed) {
+      if (projectPath) savePanelLayout(projectPath, { sourceCollapsed: false });
+      setShowVerticalBar(false);
+      applyTransition();
+      isAnimating.current = true;
+      handleExpandWithEqualDistribution();
+      animationTimer.current = setTimeout(() => {
+        clearTransition();
+        isAnimating.current = false;
+      }, ANIM_MS);
+    } else {
+      const sourceSize = sourcePanelRef.current?.getSize().asPercentage ?? 30;
+      setLastSourceSize(sourceSize);
+      if (projectPath) savePanelLayout(projectPath, { sourceCollapsed: true, sourceSize });
+      applyTransition();
+      isAnimating.current = true;
+      handleCollapseWithEqualDistribution(sourceSize);
+      animationTimer.current = setTimeout(() => {
+        setShowVerticalBar(true);
+        clearTransition();
+        isAnimating.current = false;
+      }, ANIM_MS);
+    }
   }
 
   function isExpanded(id: string): boolean {
@@ -300,42 +414,91 @@ export default function Workbench() {
       <PanelGroup orientation="horizontal" className="h-full">
 
         {/* ── SOURCE ── */}
-        <Panel defaultSize={30} minSize={12} className="flex flex-col overflow-hidden">
-          <div
-            className="flex items-center justify-between shrink-0 px-5"
-            style={{ height: 40, background: "#ECEAE6", borderBottom: "1px solid #DDD9D2" }}
-          >
-            <span
-              className="text-[13px] font-semibold tracking-[0.06em] uppercase"
-              style={{ color: "#3A3834" }}
+        <Panel
+          panelRef={sourcePanelRef}
+          elementRef={sourceElementRef}
+          collapsible
+          collapsedSize="40px"
+          defaultSize={30}
+          minSize={15}
+          onResize={() => {
+            const collapsed = sourcePanelRef.current?.isCollapsed() ?? false;
+            setSourceCollapsed(collapsed);
+            if (!isAnimating.current) {
+              setShowVerticalBar(collapsed);
+              if (collapsed && projectPath) {
+                savePanelLayout(projectPath, { sourceCollapsed: true });
+              }
+            }
+            if (!collapsed) saveHorizontalSizes();
+          }}
+          className="flex flex-col overflow-hidden"
+        >
+          {showVerticalBar ? (
+            <div
+              className="h-full flex flex-col items-center"
+              style={{ background: "#ECEAE6", width: 40, borderRight: "1px solid #DDD9D2" }}
             >
-              Source
-            </span>
-            <div className="flex items-center gap-1">
-              {hasSource && (
-                <IconButton onClick={handleCopy} title="Copy source">
-                  {copied ? <CheckIcon /> : <CopyIcon />}
+              <div style={{ padding: "9px 0" }}>
+                <IconButton onClick={handleToggleSource} title="Expand source">
+                  <ExpandRightIcon />
                 </IconButton>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 min-h-0">
-            {hasSource ? (
-              <CodeEditor value={sourceValue} readOnly editorBackground="#F5F4F2" />
-            ) : (
-              <div className="text-sm px-5 pt-5" style={{ color: "#ACA89F" }}>
-                Generated library source will appear here
               </div>
-            )}
-          </div>
+              <div
+                className="flex-1 flex items-center justify-center cursor-pointer"
+                onClick={handleToggleSource}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "#8A8780",
+                    writingMode: "vertical-rl",
+                    transform: "rotate(180deg)",
+                    userSelect: "none",
+                  }}
+                >
+                  Source
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div
+                className="flex items-center justify-between shrink-0 px-5"
+                style={{ height: 40, background: "#ECEAE6", borderBottom: "1px solid #DDD9D2" }}
+              >
+                <span
+                  className="text-[13px] font-semibold tracking-[0.06em] uppercase"
+                  style={{ color: "#3A3834" }}
+                >
+                  Source
+                </span>
+                <IconButton onClick={handleToggleSource} title="Collapse source">
+                  <CollapseLeftIcon />
+                </IconButton>
+              </div>
+              <div className="flex-1 min-h-0">
+                {hasSource ? (
+                  <CodeEditor value={sourceValue} readOnly editorBackground="#F5F4F2" />
+                ) : (
+                  <div className="text-sm px-5 pt-5" style={{ color: "#ACA89F" }}>
+                    Generated library source will appear here
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </Panel>
 
-        <PanelResizeHandle className="group relative flex items-center justify-center" style={{ width: 1, background: "#DDD9D2", cursor: "col-resize" }}>
+        <PanelResizeHandle onPointerDown={cancelAnimation} className="group relative flex items-center justify-center" style={{ width: 1, background: "#DDD9D2", cursor: "col-resize" }}>
           <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-[#8B7FF0]/20 group-data-[resize-handle-active]:bg-[#8B7FF0]/30 transition-colors" />
         </PanelResizeHandle>
 
         {/* ── EXAMPLES ── */}
-        <Panel defaultSize={40} minSize={15} className="flex flex-col overflow-hidden">
+        <Panel panelRef={examplesPanelRef} defaultSize={40} minSize={20} onResize={saveHorizontalSizes} className="flex flex-col overflow-hidden">
           <div
             className="flex items-center justify-between shrink-0 px-5"
             style={{ height: 40, background: "#ECEAE6", borderBottom: "1px solid #DDD9D2" }}
@@ -621,12 +784,12 @@ export default function Workbench() {
           </div>
         </Panel>
 
-        <PanelResizeHandle className="group relative flex items-center justify-center" style={{ width: 1, background: "#DDD9D2", cursor: "col-resize" }}>
+        <PanelResizeHandle onPointerDown={cancelAnimation} className="group relative flex items-center justify-center" style={{ width: 1, background: "#DDD9D2", cursor: "col-resize" }}>
           <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-[#8B7FF0]/20 group-data-[resize-handle-active]:bg-[#8B7FF0]/30 transition-colors" />
         </PanelResizeHandle>
 
         {/* ── PREVIEW ── */}
-        <Panel defaultSize={30} minSize={15} className="flex flex-col overflow-hidden">
+        <Panel panelRef={previewPanelRef} defaultSize={30} minSize={18} onResize={saveHorizontalSizes} className="flex flex-col overflow-hidden">
           <PreviewPanel />
         </Panel>
       </PanelGroup>

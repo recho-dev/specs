@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
+import { readPanelLayout, savePanelLayout } from "@/lib/panelLayout";
 import type { SandboxInboundMessage } from "@/types";
 import PreviewFrame from "./PreviewFrame";
 import ConsoleLog from "./ConsoleLog";
@@ -19,6 +21,7 @@ function exampleDisplayTitle(name: string) {
 }
 
 export default function PreviewPanel() {
+  const projectPath = useWorkbenchStore((s) => s.projectPath);
   const examples = useWorkbenchStore((s) => s.examples);
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
@@ -30,6 +33,8 @@ export default function PreviewPanel() {
 
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleBtnHovered, setConsoleBtnHovered] = useState(false);
+  const consolePanelRef = useRef<PanelImperativeHandle | null>(null);
+  const consoleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -80,6 +85,29 @@ export default function PreviewPanel() {
     error: "Error",
   };
 
+  // Restore saved console state when a project is opened
+  useEffect(() => {
+    if (!projectPath) return;
+    const layout = readPanelLayout(projectPath);
+    const t = setTimeout(() => {
+      if (layout.consoleOpen) {
+        consolePanelRef.current?.resize(`${layout.consoleSize ?? 30}`);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [projectPath]);
+
+  function toggleConsole() {
+    if (consoleOpen) {
+      consolePanelRef.current?.collapse();
+      if (projectPath) savePanelLayout(projectPath, { consoleOpen: false });
+    } else {
+      const saved = projectPath ? readPanelLayout(projectPath) : {};
+      consolePanelRef.current?.resize(`${saved.consoleSize ?? 30}`);
+      if (projectPath) savePanelLayout(projectPath, { consoleOpen: true });
+    }
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: "#F5F4F2" }}>
       {/* Header */}
@@ -101,7 +129,6 @@ export default function PreviewPanel() {
           )}
         </span>
         <div className="flex items-center gap-2 shrink-0">
-          {/* Status dot + label (hidden when idle) */}
           {statusKind !== "idle" && (
             <div className="flex items-center gap-1.5">
               <div
@@ -119,12 +146,11 @@ export default function PreviewPanel() {
               </span>
             </div>
           )}
-          {/* Console toggle icon button */}
           <button
-            onClick={() => setConsoleOpen((v) => !v)}
+            onClick={toggleConsole}
             onMouseEnter={() => setConsoleBtnHovered(true)}
             onMouseLeave={() => setConsoleBtnHovered(false)}
-            title={consoleOpen ? "Show preview" : "Show console"}
+            title={consoleOpen ? "Hide console" : "Show console"}
             style={{
               width: 22,
               height: 22,
@@ -144,13 +170,10 @@ export default function PreviewPanel() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 min-h-0 relative">
-        {/* Preview iframes — always mounted, toggled visible */}
-        <div
-          className="absolute inset-0 flex flex-col"
-          style={{ display: consoleOpen ? "none" : "flex" }}
-        >
+      {/* Body: preview on top, console at bottom */}
+      <PanelGroup orientation="vertical" className="flex-1 min-h-0">
+        {/* Preview section */}
+        <Panel minSize={20} className="relative min-h-0 overflow-hidden">
           {examples.length === 0 && (
             <div className="text-sm px-5 pt-5" style={{ color: "#ACA89F" }}>
               Preview will appear here
@@ -172,11 +195,57 @@ export default function PreviewPanel() {
                 isVisible={visibleId === ex.id}
               />
             ))}
-        </div>
+        </Panel>
 
-        {/* Console panel */}
-        {consoleOpen && (
-          <div className="absolute inset-0 overflow-y-auto" style={{ background: "#FAFAF9" }}>
+        {/* Drag handle — invisible and disabled when console is closed */}
+        <PanelResizeHandle
+          disabled={!consoleOpen}
+          className="group relative flex items-center justify-center shrink-0"
+          style={{
+            height: consoleOpen ? 1 : 0,
+            background: consoleOpen ? "#DDD9D2" : "transparent",
+            cursor: consoleOpen ? "row-resize" : "default",
+          }}
+        >
+          {consoleOpen && (
+            <div className="absolute inset-x-0 -top-1 -bottom-1 group-hover:bg-[#8B7FF0]/20 group-data-[resize-handle-active]:bg-[#8B7FF0]/30 transition-colors" />
+          )}
+        </PanelResizeHandle>
+
+        {/* Console section */}
+        <Panel
+          panelRef={consolePanelRef}
+          collapsible
+          collapsedSize={0}
+          defaultSize={0}
+          minSize={15}
+          onResize={() => {
+            const collapsed = consolePanelRef.current?.isCollapsed() ?? true;
+            setConsoleOpen(!collapsed);
+            if (!collapsed && projectPath) {
+              const size = consolePanelRef.current?.getSize().asPercentage;
+              if (size != null) {
+                if (consoleSaveTimer.current) clearTimeout(consoleSaveTimer.current);
+                consoleSaveTimer.current = setTimeout(() => {
+                  savePanelLayout(projectPath, { consoleSize: size });
+                }, 300);
+              }
+            }
+          }}
+          className="flex flex-col min-h-0 overflow-hidden"
+        >
+          <div
+            className="flex items-center shrink-0 px-3"
+            style={{ height: 32, background: "#ECEAE6", borderBottom: "1px solid #DDD9D2" }}
+          >
+            <span
+              className="text-[11px] font-semibold tracking-[0.06em] uppercase"
+              style={{ color: "#8A8780" }}
+            >
+              Console
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto" style={{ background: "#FAFAF9" }}>
             {displayedExample ? (
               <ConsoleLog lines={displayedExample.consoleOutput} error={displayedExample.error} />
             ) : (
@@ -185,8 +254,8 @@ export default function PreviewPanel() {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }

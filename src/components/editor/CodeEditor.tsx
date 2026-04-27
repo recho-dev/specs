@@ -100,6 +100,8 @@ export default function CodeEditor({
             overviewRulerLanes: 0,
             contextmenu: false,
             folding: false,
+            stickyScroll: { enabled: false },
+            fixedOverflowWidgets: true,
             scrollbar: {
               vertical: autoHeight ? 'hidden' : 'auto',
               alwaysConsumeMouseWheel: !autoHeight,
