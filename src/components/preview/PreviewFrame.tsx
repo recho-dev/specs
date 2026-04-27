@@ -5,10 +5,11 @@ interface Props {
   exampleId: string;
   exampleCode: string;
   libraryCode: string;
+  generationId: number;
   isVisible: boolean;
 }
 
-export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVisible }: Props) {
+export default function PreviewFrame({ exampleId, exampleCode, libraryCode, generationId, isVisible }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const pendingRef = useRef<{ libraryCode: string; exampleCode: string } | null>(null);
@@ -29,7 +30,7 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVi
     }
   }
 
-  // Re-run whenever libraryCode or exampleCode changes (and we have a library)
+  // Re-run whenever libraryCode, exampleCode, or generationId changes
   useEffect(() => {
     if (!libraryCode.trim()) return;
     if (readyRef.current) {
@@ -37,7 +38,7 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, isVi
     } else {
       pendingRef.current = { libraryCode, exampleCode };
     }
-  }, [libraryCode, exampleCode]);
+  }, [libraryCode, exampleCode, generationId]);
 
   return (
     <iframe
