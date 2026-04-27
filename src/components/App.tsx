@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Workbench from './Workbench'
 import ProjectManager from './ProjectManager'
-import VersionTimeline from './versions/VersionTimeline'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import { ipc } from '@/lib/ipc'
 
@@ -11,18 +10,7 @@ function getBasename(p: string): string {
   return base.replace(/\.[^/.]+$/, '') || base
 }
 
-function ClockIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <circle cx="6" cy="6" r="4.5" />
-      <path d="M6 3.5V6l1.5 1.5" />
-    </svg>
-  )
-}
-
 export default function App() {
-  const [versionsOpen, setVersionsOpen] = useState(false)
-
   const isProjectLoaded = useWorkbenchStore((s) => s.isProjectLoaded)
   const loadProject = useWorkbenchStore((s) => s.loadProject)
   const addExample = useWorkbenchStore((s) => s.addExample)
@@ -52,36 +40,6 @@ export default function App() {
             <div className="px-2 truncate max-w-[60%]" style={{ fontSize: 12, fontWeight: 700, color: '#3A3834', letterSpacing: '0.01em' }}>
               {projectName}
             </div>
-          </div>
-        )}
-        {isProjectLoaded && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-5">
-            <button
-              onClick={() => setVersionsOpen(true)}
-              title="Version history"
-              style={{
-                width: 24,
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                background: 'none',
-                color: '#8A8780',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#DDD9D2'
-                ;(e.currentTarget as HTMLButtonElement).style.color = '#3A3834'
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'none'
-                ;(e.currentTarget as HTMLButtonElement).style.color = '#8A8780'
-              }}
-            >
-              <ClockIcon />
-            </button>
           </div>
         )}
       </div>
@@ -121,29 +79,6 @@ export default function App() {
         )}
       </div>
 
-      {versionsOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
-          onClick={() => setVersionsOpen(false)}
-        >
-          <div
-            className="overflow-hidden bg-white rounded-2xl"
-            style={{ width: 720, maxWidth: 'calc(100% - 24px)', maxHeight: '80vh' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-              <div className="text-sm font-semibold text-zinc-900">Versions</div>
-              <button onClick={() => setVersionsOpen(false)} className="text-zinc-500 hover:text-zinc-900 text-lg leading-none">
-                ×
-              </button>
-            </div>
-            <div className="p-2">
-              <VersionTimeline defaultOpen hideHeader />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

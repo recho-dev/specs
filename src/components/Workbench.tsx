@@ -6,6 +6,7 @@ import { ipc } from "@/lib/ipc";
 import CodeEditor from "./editor/CodeEditor";
 import PreviewPanel from "./preview/PreviewPanel";
 import AIPanel, { type AIPanelMode, type ApiKeyStatus } from "./AIPanel";
+import VersionTimeline from "./versions/VersionTimeline";
 
 const EMPTY_SOURCE_PLACEHOLDER = `// Library source appears after generation.\n// No need to edit this file manually.`;
 
@@ -59,6 +60,15 @@ function PlusIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M5 1v8M1 5h8" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="6" cy="6" r="4.5" />
+      <path d="M6 3.5V6l1.5 1.5" />
     </svg>
   );
 }
@@ -194,6 +204,7 @@ export default function Workbench() {
 
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -577,6 +588,34 @@ export default function Workbench() {
                 >
                   Chat
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setVersionsOpen(true)}
+                  title="Version history"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 6,
+                    border: "1px solid #CCC8C0",
+                    background: "#FAF9F7",
+                    color: "#8A8780",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#DDD9D2";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#3A3834";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#FAF9F7";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#8A8780";
+                  }}
+                >
+                  <ClockIcon />
+                </button>
               </div>
             </div>
           </div>
@@ -592,6 +631,29 @@ export default function Workbench() {
         </Panel>
       </PanelGroup>
 
+      {versionsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.4)" }}
+          onClick={() => setVersionsOpen(false)}
+        >
+          <div
+            className="overflow-hidden bg-white rounded-2xl"
+            style={{ width: 720, maxWidth: "calc(100% - 24px)", maxHeight: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+              <div className="text-sm font-semibold text-zinc-900">Versions</div>
+              <button onClick={() => setVersionsOpen(false)} className="text-zinc-500 hover:text-zinc-900 text-lg leading-none">
+                ×
+              </button>
+            </div>
+            <div className="p-2">
+              <VersionTimeline defaultOpen hideHeader />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
