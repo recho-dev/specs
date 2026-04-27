@@ -66,6 +66,7 @@ function SpinnerIcon() {
 
 export default function ExportModal({ defaultName, initialMeta, onClose, onExport }: Props) {
   const [name, setName] = useState(initialMeta?.name ?? defaultName)
+  const [version, setVersion] = useState(initialMeta?.version ?? '1.0.0')
   const [description, setDescription] = useState(initialMeta?.description ?? '')
   const [author, setAuthor] = useState(initialMeta?.author ?? '')
   const [github, setGithub] = useState(initialMeta?.github ?? '')
@@ -81,6 +82,7 @@ export default function ExportModal({ defaultName, initialMeta, onClose, onExpor
     if (!canExport || status === 'exporting') return
     const meta: ExportMeta = {
       name: name.trim(),
+      version: version.trim() || '1.0.0',
       description: description.trim() || undefined,
       author: author.trim() || undefined,
       github: github.trim() || undefined,
@@ -181,7 +183,14 @@ export default function ExportModal({ defaultName, initialMeta, onClose, onExpor
           <>
             {/* Form */}
             <div className="px-5 py-5 flex flex-col gap-3">
-              <Field label="Package name" required value={name} onChange={setName} placeholder="my-library" />
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <Field label="Package name" required value={name} onChange={setName} placeholder="my-library" />
+                </div>
+                <div style={{ width: 96 }}>
+                  <Field label="Version" value={version} onChange={setVersion} placeholder="1.0.0" />
+                </div>
+              </div>
               <Field label="Description" value={description} onChange={setDescription} placeholder="A JavaScript library." />
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Author" value={author} onChange={setAuthor} placeholder="Your Name" />
@@ -203,7 +212,9 @@ export default function ExportModal({ defaultName, initialMeta, onClose, onExpor
                 Generates <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>src/index.js</code>,{' '}
                 <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>package.json</code>,{' '}
                 <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>rspack.config.js</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>README.md</code>
+                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>README.md</code>,{' '}
+                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>.gitignore</code>,{' '}
+                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>LICENSE</code>
               </p>
               <div className="flex gap-2">
                 <button

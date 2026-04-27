@@ -88,6 +88,7 @@ export interface Version {
 
 export interface ExportMeta {
   name: string
+  version?: string
   description?: string
   author?: string
   github?: string
