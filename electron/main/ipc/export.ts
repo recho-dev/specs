@@ -200,6 +200,7 @@ Requirements:
 ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<ExportResult> => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     title: 'Choose Export Location',
+    buttonLabel: 'Export',
     properties: ['openDirectory', 'createDirectory'],
   })
   if (result.canceled || !result.filePaths[0]) return { ok: false, error: 'Cancelled' }
