@@ -43,6 +43,8 @@ interface WorkbenchStore {
   versions: Version[]
   activeVersionId: string | null
 
+  generationId: number
+
   aiMessage: string | null
   aiMessageLoading: boolean
   dismissAiMessage: () => void
@@ -98,6 +100,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     specQuestion: null,
     specConversationHistory: [],
     pendingRefinementInstruction: '',
+    generationId: 0,
     versions: [],
     activeVersionId: null,
 
@@ -277,6 +280,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         state.library.generationError = error
         state.library.isGenerating = false
         state.library.streamBuffer = ''
+        state.examples.forEach((e) => {
+          if (e.status === 'running') e.status = 'idle'
+        })
       })
     },
 
@@ -528,6 +534,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           await get().saveVersion(refinement, priorLibraryCode, priorExamples)
           set((s) => {
             s.library.isGenerating = false
+            s.generationId += 1
           })
           resolve()
         })

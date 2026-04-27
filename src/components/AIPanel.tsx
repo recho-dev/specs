@@ -23,6 +23,95 @@ function CloseIcon() {
   )
 }
 
+export type AIPanelMode = 'api-key' | 'spec-question' | 'message' | null
+export interface ApiKeyStatus { ok: boolean; text: string }
+
+interface ApiKeyModeProps {
+  apiKeyStatus?: ApiKeyStatus | null
+  isSaving: boolean
+  onSave: (key: string) => void
+}
+
+function ApiKeyMode({ apiKeyStatus, isSaving, onSave }: ApiKeyModeProps) {
+  const [key, setKey] = useState('')
+
+  function handleSubmit() {
+    const trimmed = key.trim()
+    if (!trimmed || isSaving) return
+    onSave(trimmed)
+  }
+
+  return (
+    <>
+      <p className="text-[13px] leading-relaxed" style={{ color: '#6E6A62' }}>
+        Forma uses Claude to generate and refine your library. Enter your{' '}
+        <a
+          href="https://platform.claude.com/settings/keys"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: '#5B47D0', textDecoration: 'underline' }}
+        >
+          Anthropic API key
+        </a>{' '}
+        below to get started. It will be stored safely in your system keychain.
+      </p>
+      <div className="flex gap-2 mt-3">
+        <input
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
+          placeholder="sk-ant-…"
+          autoFocus
+          className="flex-1 min-w-0 outline-none"
+          style={{
+            height: 32,
+            border: '1px solid #CCC8C0',
+            borderRadius: 6,
+            background: '#FAF9F7',
+            padding: '0 10px',
+            fontFamily: 'inherit',
+            fontSize: '13px',
+            color: '#3A3834',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = '#8B7FF0'
+            e.currentTarget.style.boxShadow = '0 0 0 2.5px rgba(139,127,240,0.18)'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '#CCC8C0'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!key.trim() || isSaving}
+          style={{
+            height: 32,
+            padding: '0 14px',
+            borderRadius: 6,
+            border: 'none',
+            background: (!key.trim() || isSaving) ? '#8A7FD0' : '#5B47D0',
+            color: '#fff',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: (!key.trim() || isSaving) ? 'default' : 'pointer',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {isSaving ? 'Validating…' : 'Save'}
+        </button>
+      </div>
+      {apiKeyStatus && !apiKeyStatus.ok && (
+        <p className="text-[12px] mt-2" style={{ color: '#C0392B' }}>
+          {apiKeyStatus.text}
+        </p>
+      )}
+    </>
+  )
+}
+
 interface SpecQuestionModeProps {
   question: string
   onAnswer: (answer: string) => void
@@ -122,17 +211,16 @@ function MessageMode({ message, loading }: MessageModeProps) {
   )
 }
 
-export type AIPanelMode = 'api-key' | 'spec-question' | 'message' | null
-export interface ApiKeyStatus { ok: boolean; text: string }
-
 interface Props {
   mode: AIPanelMode
   specQuestion?: string | null
   aiMessage?: string | null
   aiMessageLoading?: boolean
   apiKeyStatus?: ApiKeyStatus | null
+  isSaving?: boolean
   onDismiss: () => void
   onAnswerSpec: (answer: string) => void
+  onSaveApiKey: (key: string) => void
 }
 
 export default function AIPanel({
@@ -141,8 +229,10 @@ export default function AIPanel({
   aiMessage,
   aiMessageLoading = false,
   apiKeyStatus,
+  isSaving = false,
   onDismiss,
   onAnswerSpec,
+  onSaveApiKey,
 }: Props) {
   if (!mode) return null
 
@@ -151,7 +241,7 @@ export default function AIPanel({
     mode === 'spec-question' ? 'Clarifying Question' :
     'What was built'
 
-  const dismissible = mode === 'message'
+  const dismissible = mode === 'message' || mode === 'api-key'
 
   return (
     <div
@@ -197,28 +287,7 @@ export default function AIPanel({
         </div>
 
         {mode === 'api-key' && (
-          <>
-            <p className="text-[13px] leading-relaxed" style={{ color: '#6E6A62' }}>
-              Forma uses Claude to generate and refine your library. Enter your{' '}
-              <a
-                href="https://platform.claude.com/settings/keys"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: '#5B47D0', textDecoration: 'underline' }}
-              >
-                Anthropic API key
-              </a>{' '}
-              below to get started. It will be stored safely in your system keychain.
-            </p>
-            {apiKeyStatus && (
-              <p
-                className="text-[12px] mt-2"
-                style={{ color: apiKeyStatus.ok ? '#1E8847' : '#C0392B' }}
-              >
-                {apiKeyStatus.text}
-              </p>
-            )}
-          </>
+          <ApiKeyMode apiKeyStatus={apiKeyStatus} isSaving={isSaving} onSave={onSaveApiKey} />
         )}
         {mode === 'spec-question' && specQuestion && (
           <SpecQuestionMode question={specQuestion} onAnswer={onAnswerSpec} />

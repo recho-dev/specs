@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
@@ -59,6 +59,22 @@ function PlusIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
       <path d="M5 1v8M1 5h8" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 9V3M3.5 5.5L6 3l2.5 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="animate-spin">
+      <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="18 8" />
     </svg>
   );
 }
@@ -177,6 +193,8 @@ export default function Workbench() {
   const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
 
   const [aiInput, setAiInput] = useState("");
+  const [footerMode, setFooterMode] = useState<null | 'ask' | 'generate'>(null);
+  const askInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [apiKeyRequested, setApiKeyRequested] = useState(false);
@@ -194,20 +212,42 @@ export default function Workbench() {
   const sourceValue = isGenerating ? streamBuffer : libraryCode || EMPTY_SOURCE_PLACEHOLDER;
   const hasSource = !!(libraryCode || isGenerating);
 
-  async function handleGenerate() {
+  async function handleGenerateClick() {
     const hasKey = await ipc.hasApiKey();
     if (!hasKey) { setApiKeyRequested(true); return; }
-    generate().catch(() => {});
+    setAiInput("Generate the library based on the existing examples");
+    setFooterMode('generate');
+    generate().catch(() => {}).finally(() => {
+      setFooterMode(null);
+      setAiInput('');
+    });
   }
 
-  async function handleAiSubmit() {
+  function handleAskAiClick() {
+    if (footerMode === 'ask') {
+      setFooterMode(null);
+      setAiInput('');
+      return;
+    }
+    setFooterMode('ask');
+    setAiInput('');
+  }
+
+  async function handleSendAsk() {
     const trimmed = aiInput.trim();
     if (!trimmed) return;
     const hasKey = await ipc.hasApiKey();
     if (!hasKey) { setApiKeyRequested(true); return; }
-    setAiInput("");
+    setAiInput('');
+    setFooterMode(null);
     refine(trimmed).catch(() => {});
   }
+
+  useEffect(() => {
+    if (footerMode === 'ask') {
+      setTimeout(() => askInputRef.current?.focus(), 0);
+    }
+  }, [footerMode]);
 
   async function handleSaveApiKey(key: string) {
     setIsSaving(true);
@@ -223,7 +263,6 @@ export default function Workbench() {
 
     await ipc.setApiKey(key).catch(() => {});
     setApiKeyRequested(false);
-    setAiInput("");
     setApiKeyStatus(null);
     setIsSaving(false);
     setApiKeySavedMsg('Key saved successfully! Click **Generate** to get started.');
@@ -431,76 +470,121 @@ export default function Workbench() {
             aiMessage={apiKeySavedMsg ?? aiMessage}
             aiMessageLoading={aiMessageLoading}
             apiKeyStatus={apiKeyStatus}
+            isSaving={isSaving}
             onDismiss={handleDismissPanel}
             onAnswerSpec={(answer) => answerSpecQuestion(answer).catch(() => {})}
+            onSaveApiKey={handleSaveApiKey}
           />
 
-          {/* Footer: prompt + generate */}
+          {/* Footer: generate + ask AI */}
           <div
-            className="shrink-0 px-4 py-4"
+            className="shrink-0 px-4 py-3"
             style={{ borderTop: "1px solid #DDD9D2", background: "#ECEAE6" }}
           >
-            <div className="flex items-center gap-1.5">
-              <input
-                type={panelMode === 'api-key' ? "password" : "text"}
-                value={aiInput}
-                onChange={(e) => { setAiInput(e.target.value); if (panelMode === 'api-key') setApiKeyStatus(null); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    if (panelMode === 'api-key') {
-                      const trimmed = aiInput.trim();
-                      if (trimmed) handleSaveApiKey(trimmed);
-                    } else {
-                      handleAiSubmit();
-                    }
-                  }
-                }}
-                placeholder={panelMode === 'api-key' ? 'sk-ant-…' : 'Ask AI… (e.g. "add input validation")'}
-                className="flex-1 min-w-0 outline-none"
-                style={{
-                  height: 34,
-                  border: "1px solid #CCC8C0",
-                  borderRadius: 6,
-                  background: "#FAF9F7",
-                  padding: "0 10px",
-                  fontFamily: "inherit",
-                  fontSize: "13px",
-                  color: "#3A3834",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#8B7FF0";
-                  e.currentTarget.style.boxShadow = "0 0 0 2.5px rgba(139,127,240,0.18)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "#CCC8C0";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              />
-              <button
-                type="button"
-                onClick={panelMode === 'api-key'
-                  ? () => { const trimmed = aiInput.trim(); if (trimmed) handleSaveApiKey(trimmed); }
-                  : handleGenerate}
-                disabled={isGenerating || isSaving || (panelMode === 'api-key' && !aiInput.trim())}
-                style={{
-                  height: 34,
-                  padding: "0 14px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: isGenerating || isSaving || (panelMode === 'api-key' && !aiInput.trim()) ? "#8A7FD0" : "#5B47D0",
-                  color: "#fff",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: isGenerating || isSaving || (panelMode === 'api-key' && !aiInput.trim()) ? "default" : "pointer",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                {panelMode === 'api-key'
-                  ? isSaving ? "Validating…" : "Save"
-                  : isGenerating ? "Generating…" : "Generate"}
-              </button>
+            <div className="flex flex-col gap-2">
+              {/* Input row — visible when a footer mode is active */}
+              {footerMode && (
+                <div
+                  className="flex items-center"
+                  style={{
+                    height: 36,
+                    borderRadius: 8,
+                    paddingLeft: 10,
+                    paddingRight: 6,
+                    background: footerMode === 'generate'
+                      ? "linear-gradient(#F0EDE8, #F0EDE8) padding-box, linear-gradient(135deg, #CCC8C0, #ACA89F) border-box"
+                      : "linear-gradient(#FAF9F7, #FAF9F7) padding-box, linear-gradient(135deg, #E879A0, #8B7FF0) border-box",
+                    border: "2px solid transparent",
+                  }}
+                >
+                  <input
+                    ref={askInputRef}
+                    type="text"
+                    value={aiInput}
+                    onChange={(e) => { if (footerMode === 'ask') setAiInput(e.target.value); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && footerMode === 'ask') handleSendAsk();
+                      if (e.key === 'Escape') { setFooterMode(null); setAiInput(''); }
+                    }}
+                    readOnly={footerMode === 'generate'}
+                    placeholder="Ask AI…"
+                    className="flex-1 min-w-0 outline-none"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      fontFamily: "inherit",
+                      fontSize: "13px",
+                      color: "#3A3834",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={footerMode === 'ask' ? handleSendAsk : undefined}
+                    disabled={footerMode !== 'ask' || !aiInput.trim()}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: isGenerating
+                        ? "linear-gradient(135deg, #E879A0, #8B7FF0)"
+                        : (footerMode === 'ask' && aiInput.trim())
+                          ? "linear-gradient(135deg, #E879A0, #8B7FF0)"
+                          : "#CCC8C0",
+                      color: "#fff",
+                      cursor: (footerMode === 'ask' && aiInput.trim()) ? "pointer" : "default",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isGenerating ? <SpinnerIcon /> : <SendIcon />}
+                  </button>
+                </div>
+              )}
+
+              {/* Main action buttons */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateClick}
+                  disabled={isGenerating}
+                  style={{
+                    flex: 1,
+                    height: 34,
+                    borderRadius: 6,
+                    border: "none",
+                    background: isGenerating ? "#8A7FD0" : "#5B47D0",
+                    color: "#fff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: isGenerating ? "default" : "pointer",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {isGenerating ? "Generating…" : "Generate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAskAiClick}
+                  disabled={isGenerating}
+                  style={{
+                    flex: 1,
+                    height: 34,
+                    borderRadius: 6,
+                    border: "1px solid #CCC8C0",
+                    background: footerMode === 'ask' ? "#EAE7F5" : "#FAF9F7",
+                    color: footerMode === 'ask' ? "#5B47D0" : "#3A3834",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: isGenerating ? "default" : "pointer",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Chat
+                </button>
+              </div>
             </div>
           </div>
         </Panel>

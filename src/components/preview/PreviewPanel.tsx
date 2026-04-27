@@ -23,6 +23,7 @@ export default function PreviewPanel() {
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
+  const generationId = useWorkbenchStore((s) => s.generationId);
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
   const appendConsoleLine = useWorkbenchStore((s) => s.appendConsoleLine);
@@ -167,6 +168,7 @@ export default function PreviewPanel() {
                 exampleId={ex.id}
                 exampleCode={ex.code}
                 libraryCode={libraryCode}
+                generationId={generationId}
                 isVisible={visibleId === ex.id}
               />
             ))}
