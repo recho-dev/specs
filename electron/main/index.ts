@@ -46,6 +46,7 @@ app.whenReady().then(() => {
   import('./ipc/settings').catch(() => {})
   import('./ipc/claude').catch(() => {})
   import('./ipc/project').then(({ setMainWindow }) => setMainWindow(win)).catch(() => {})
+  import('./ipc/export').then(({ setMainWindow }) => setMainWindow(win)).catch(() => {})
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

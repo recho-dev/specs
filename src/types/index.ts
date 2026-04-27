@@ -65,15 +65,6 @@ export interface VersionedExample {
   code: string;
 }
 
-export interface Version {
-  id: string;
-  versionNumber: number;
-  timestamp: number;
-  libraryCode: string;
-  examples: VersionedExample[];
-  refinementPrompt: string;
-  description: string;
-}
 
 export interface SpecRequestBody {
   examples: { id: string; name: string; code: string }[];
@@ -95,12 +86,31 @@ export interface Version {
   examples: VersionedExample[]
 }
 
+export interface ExportMeta {
+  name: string
+  description?: string
+  author?: string
+  github?: string
+  license: string
+}
+
+export interface ExportRequestBody {
+  meta: ExportMeta
+  libraryCode: string
+  examples: { name: string; code: string }[]
+}
+
+export type ExportResult =
+  | { ok: true; exportPath: string }
+  | { ok: false; error: string }
+
 export interface ProjectFile {
   examples: VersionedExample[]
   libraryCode: string
   activeExampleId: string | null
   viewingLibrary: boolean
   versions: Version[]
+  exportMeta?: ExportMeta
 }
 
 export interface LoadedProject {

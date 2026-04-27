@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile } from '../../src/types'
+import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, ExportRequestBody, ExportResult } from '../../src/types'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Claude: streaming generation
@@ -43,4 +43,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(`menu:${event}`, () => cb()),
   offMenu: (event: string) =>
     ipcRenderer.removeAllListeners(`menu:${event}`),
+
+  // Export
+  invokeExport: (body: ExportRequestBody): Promise<ExportResult> =>
+    ipcRenderer.invoke('project:export', body),
+  openPath: (path: string): Promise<void> =>
+    ipcRenderer.invoke('shell:open-path', path),
 })

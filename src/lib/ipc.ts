@@ -1,4 +1,4 @@
-import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, SummarizeRequestBody } from '@/types'
+import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult } from '@/types'
 
 const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI
 
@@ -18,6 +18,8 @@ interface ElectronAPI {
   validateApiKey: (key: string) => Promise<{ valid: true } | { valid: false; reason: string }>
   onMenu: (event: string, cb: () => void) => void
   offMenu: (event: string) => void
+  invokeExport: (body: ExportRequestBody) => Promise<ExportResult>
+  openPath: (path: string) => Promise<void>
 }
 
 export const ipc = {
@@ -36,4 +38,6 @@ export const ipc = {
   validateApiKey: (key: string) => api().validateApiKey(key),
   onMenu: (event: string, cb: () => void) => api().onMenu(event, cb),
   offMenu: (event: string) => api().offMenu(event),
+  invokeExport: (body: ExportRequestBody) => api().invokeExport(body),
+  openPath: (path: string) => api().openPath(path),
 }
