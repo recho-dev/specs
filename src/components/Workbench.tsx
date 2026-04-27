@@ -193,7 +193,7 @@ export default function Workbench() {
   const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
 
   const [aiInput, setAiInput] = useState("");
-  const [footerMode, setFooterMode] = useState<null | 'ask' | 'generate'>(null);
+  const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
   const askInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -215,12 +215,7 @@ export default function Workbench() {
   async function handleGenerateClick() {
     const hasKey = await ipc.hasApiKey();
     if (!hasKey) { setApiKeyRequested(true); return; }
-    setAiInput("Generate the library based on the existing examples");
-    setFooterMode('generate');
-    generate().catch(() => {}).finally(() => {
-      setFooterMode(null);
-      setAiInput('');
-    });
+    generate().catch(() => {});
   }
 
   function handleAskAiClick() {
@@ -482,8 +477,8 @@ export default function Workbench() {
             style={{ borderTop: "1px solid #DDD9D2", background: "#ECEAE6" }}
           >
             <div className="flex flex-col gap-2">
-              {/* Input row — visible when a footer mode is active */}
-              {footerMode && (
+              {/* Chat input row — visible when chat mode is open */}
+              {footerMode === 'ask' && (
                 <div
                   className="flex items-center"
                   style={{
@@ -491,9 +486,7 @@ export default function Workbench() {
                     borderRadius: 8,
                     paddingLeft: 10,
                     paddingRight: 6,
-                    background: footerMode === 'generate'
-                      ? "linear-gradient(#F0EDE8, #F0EDE8) padding-box, linear-gradient(135deg, #CCC8C0, #ACA89F) border-box"
-                      : "linear-gradient(#FAF9F7, #FAF9F7) padding-box, linear-gradient(135deg, #E879A0, #8B7FF0) border-box",
+                    background: "linear-gradient(#FAF9F7, #FAF9F7) padding-box, linear-gradient(135deg, #E879A0, #8B7FF0) border-box",
                     border: "2px solid transparent",
                   }}
                 >
@@ -501,12 +494,11 @@ export default function Workbench() {
                     ref={askInputRef}
                     type="text"
                     value={aiInput}
-                    onChange={(e) => { if (footerMode === 'ask') setAiInput(e.target.value); }}
+                    onChange={(e) => setAiInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && footerMode === 'ask') handleSendAsk();
+                      if (e.key === 'Enter') handleSendAsk();
                       if (e.key === 'Escape') { setFooterMode(null); setAiInput(''); }
                     }}
-                    readOnly={footerMode === 'generate'}
                     placeholder="Ask AI…"
                     className="flex-1 min-w-0 outline-none"
                     style={{
@@ -519,27 +511,23 @@ export default function Workbench() {
                   />
                   <button
                     type="button"
-                    onClick={footerMode === 'ask' ? handleSendAsk : undefined}
-                    disabled={footerMode !== 'ask' || !aiInput.trim()}
+                    onClick={handleSendAsk}
+                    disabled={!aiInput.trim()}
                     style={{
                       width: 24,
                       height: 24,
                       borderRadius: "50%",
                       border: "none",
-                      background: isGenerating
-                        ? "linear-gradient(135deg, #E879A0, #8B7FF0)"
-                        : (footerMode === 'ask' && aiInput.trim())
-                          ? "linear-gradient(135deg, #E879A0, #8B7FF0)"
-                          : "#CCC8C0",
+                      background: aiInput.trim() ? "linear-gradient(135deg, #E879A0, #8B7FF0)" : "#CCC8C0",
                       color: "#fff",
-                      cursor: (footerMode === 'ask' && aiInput.trim()) ? "pointer" : "default",
+                      cursor: aiInput.trim() ? "pointer" : "default",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       flexShrink: 0,
                     }}
                   >
-                    {isGenerating ? <SpinnerIcon /> : <SendIcon />}
+                    <SendIcon />
                   </button>
                 </div>
               )}
@@ -549,20 +537,25 @@ export default function Workbench() {
                 <button
                   type="button"
                   onClick={handleGenerateClick}
-                  disabled={isGenerating}
+                  disabled={isGenerating || footerMode === 'ask'}
                   style={{
                     flex: 1,
                     height: 34,
                     borderRadius: 6,
                     border: "none",
-                    background: isGenerating ? "#8A7FD0" : "#5B47D0",
+                    background: isGenerating ? "#8A7FD0" : footerMode === 'ask' ? "#C4C0D8" : "#5B47D0",
                     color: "#fff",
                     fontSize: "13px",
                     fontWeight: 600,
-                    cursor: isGenerating ? "default" : "pointer",
+                    cursor: (isGenerating || footerMode === 'ask') ? "default" : "pointer",
                     letterSpacing: "0.02em",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
                   }}
                 >
+                  {isGenerating && <SpinnerIcon />}
                   {isGenerating ? "Generating…" : "Generate"}
                 </button>
                 <button
