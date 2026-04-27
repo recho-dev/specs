@@ -231,7 +231,7 @@ export default function ExportModal({ defaultName, initialMeta, onClose, onExpor
                   }}
                 >
                   {status === 'exporting' && <SpinnerIcon />}
-                  {status === 'exporting' ? 'Exporting…' : 'Export'}
+                  {status === 'exporting' ? 'Exporting…' : 'Next'}
                 </button>
               </div>
             </div>
