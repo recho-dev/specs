@@ -205,17 +205,9 @@ export default function ExportModal({ defaultName, initialMeta, onClose, onExpor
 
             {/* Footer */}
             <div
-              className="flex items-center justify-between px-5 py-4"
+              className="flex items-center justify-end px-5 py-4"
               style={{ borderTop: '1px solid #DDD9D2', background: '#F5F4F2' }}
             >
-              <p style={{ fontSize: 11, color: '#ACA89F' }}>
-                Generates <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>src/index.js</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>package.json</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>rspack.config.js</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>README.md</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>.gitignore</code>,{' '}
-                <code style={{ background: '#ECEAE6', padding: '1px 4px', borderRadius: 3 }}>LICENSE</code>
-              </p>
               <div className="flex gap-2">
                 <button
                   onClick={onClose}
