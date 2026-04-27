@@ -17,7 +17,7 @@ const DIFF_OPTIONS = {
   lineHeight: 20,
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
-  wordWrap: 'on' as const,
+  wordWrap: 'off' as const,
   padding: { top: 12 },
   renderLineHighlight: 'none' as const,
   overviewRulerLanes: 0,

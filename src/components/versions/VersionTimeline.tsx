@@ -3,6 +3,11 @@ import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import type { Version } from '@/types'
 import VersionDiffModal from './VersionDiffModal'
 
+interface Props {
+  defaultOpen?: boolean
+  hideHeader?: boolean
+}
+
 function formatAge(timestamp: number): string {
   const s = Math.floor((Date.now() - timestamp) / 1000)
   if (s < 60) return `${s}s ago`
@@ -13,29 +18,31 @@ function formatAge(timestamp: number): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-export default function VersionTimeline() {
+export default function VersionTimeline({ defaultOpen = false, hideHeader = false }: Props) {
   const versions = useWorkbenchStore((s) => s.versions)
   const activeVersionId = useWorkbenchStore((s) => s.activeVersionId)
   const restoreVersion = useWorkbenchStore((s) => s.restoreVersion)
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen || hideHeader)
   const [diffVersion, setDiffVersion] = useState<Version | null>(null)
 
   if (versions.length === 0) return null
 
   return (
     <>
-      <div className="border-t border-zinc-200">
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-600 hover:text-zinc-900 transition-colors"
-        >
-          <span className="flex items-center gap-1">
-            <span className={`transition-transform inline-block ${open ? 'rotate-90' : ''}`}>▸</span>
-            History
-          </span>
-          <span className="text-zinc-500">{versions.length}</span>
-        </button>
+      <div className={hideHeader ? '' : 'border-t border-zinc-200'}>
+        {!hideHeader && (
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-600 hover:text-zinc-900 transition-colors"
+          >
+            <span className="flex items-center gap-1">
+              <span className={`transition-transform inline-block ${open ? 'rotate-90' : ''}`}>▸</span>
+              History
+            </span>
+            <span className="text-zinc-500">{versions.length}</span>
+          </button>
+        )}
 
         {open && (
           <div className="max-h-[160px] overflow-y-auto pb-1">

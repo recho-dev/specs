@@ -1,29 +1,39 @@
-import { ipcMain, app } from 'electron'
-import { promises as fs } from 'fs'
-import { join } from 'path'
+import { ipcMain } from 'electron'
+import Anthropic from '@anthropic-ai/sdk'
+import { readApiKey, writeApiKey } from './keystore'
 
-const settingsPath = join(app.getPath('userData'), 'settings.json')
-
-async function readSettings(): Promise<Record<string, string>> {
-  try {
-    const raw = await fs.readFile(settingsPath, 'utf-8')
-    return JSON.parse(raw)
-  } catch {
-    return {}
-  }
-}
-
-async function writeSettings(data: Record<string, string>): Promise<void> {
-  await fs.writeFile(settingsPath, JSON.stringify(data, null, 2), 'utf-8')
-}
+ipcMain.handle('settings:has-api-key', async () => {
+  const key = await readApiKey()
+  return !!key
+})
 
 ipcMain.handle('settings:get-api-key', async () => {
-  const settings = await readSettings()
-  return settings.apiKey ?? ''
+  return readApiKey()
 })
 
 ipcMain.handle('settings:set-api-key', async (_e, key: string) => {
-  const settings = await readSettings()
-  settings.apiKey = key
-  await writeSettings(settings)
+  await writeApiKey(key)
+})
+
+ipcMain.handle('settings:validate-api-key', async (_e, key: string): Promise<{ valid: true } | { valid: false; reason: string }> => {
+  try {
+    const client = new Anthropic({ apiKey: key })
+    await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    return { valid: true }
+  } catch (err) {
+    if (err instanceof Anthropic.APIError) {
+      if (err.status === 401 || err.status === 403) {
+        return { valid: false, reason: 'Invalid API key.' }
+      }
+      if (err.status === 402 || (err.status === 429 && /credit|balance/i.test(err.message))) {
+        return { valid: false, reason: 'Insufficient credits on this key.' }
+      }
+      return { valid: false, reason: err.message }
+    }
+    return { valid: false, reason: 'Could not reach the Anthropic API.' }
+  }
 })

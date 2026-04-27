@@ -2,8 +2,11 @@
 @source "../";
 
 :root {
-  --background: #ffffff;
-  --foreground: #09090b;
+  --background: #F5F4F2;
+  --foreground: #3A3834;
+  --col-header: #ECEAE6;
+  --border: #DDD9D2;
+  --accent: #5B47D0;
 }
 
 body {
@@ -19,9 +22,10 @@ body {
 
 /* Electron/macOS: reserve a draggable titlebar area so traffic lights never overlap UI */
 .app-titlebar {
-  height: 28px;
+  height: 40px;
   -webkit-app-region: drag;
-  background: var(--background);
+  background: #ECEAE6;
+  border-bottom: 1px solid #DDD9D2;
 }
 
 /* Ensure interactive elements remain clickable inside/near drag regions */
@@ -33,4 +37,9 @@ select,
 [role="button"],
 [contenteditable="true"] {
   -webkit-app-region: no-drag;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }

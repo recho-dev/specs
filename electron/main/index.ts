@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, net, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, protocol, net, Menu, ipcMain, shell } from 'electron'
 import { join } from 'path'
 
 // Must be called before app.ready
@@ -56,6 +56,20 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+app.on('web-contents-created', (_e, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    const isLocal = url.startsWith('http://localhost') || url.startsWith('file://') || url.startsWith('app://')
+    if (!isLocal) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+})
+
 function buildMenu(win: BrowserWindow): Menu {
   return Menu.buildFromTemplate([
     {
@@ -104,8 +118,11 @@ function buildMenu(win: BrowserWindow): Menu {
       label: 'Settings',
       submenu: [
         {
-          label: 'API Key...',
-          click: () => win.webContents.send('menu:open-settings')
+          label: 'Reset Anthropic API Key',
+          click: async () => {
+            const { writeApiKey } = await import('./ipc/keystore')
+            await writeApiKey('')
+          }
         }
       ]
     }

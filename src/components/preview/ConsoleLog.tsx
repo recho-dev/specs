@@ -23,14 +23,14 @@ export default function ConsoleLog({ lines, error }: Props) {
 
   if (lines.length === 0 && !error) {
     return (
-      <div className="text-xs text-zinc-500 px-3 py-2 font-mono">
+      <div className="text-sm text-zinc-500 px-3 py-2 font-mono">
         No output
       </div>
     );
   }
 
   return (
-    <div className="overflow-y-auto max-h-full font-mono text-xs px-3 py-2 space-y-0.5">
+    <div className="overflow-y-auto max-h-full font-mono text-sm px-3 py-2 space-y-0.5">
       {error && (
         <div className="text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 mb-1">
           ✗ {error}
