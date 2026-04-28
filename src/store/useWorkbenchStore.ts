@@ -55,6 +55,7 @@ interface WorkbenchStore {
 
   addExample: () => void
   insertExampleAt: (index: number) => void
+  deleteExample: (id: string) => void
   setExampleCode: (id: string, code: string) => void
   setExampleName: (id: string, name: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
@@ -195,6 +196,23 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         state.examples.splice(clamped, 0, next)
         state.activeExampleId = id
         state.viewingLibrary = false
+      })
+    },
+
+    deleteExample: (id) => {
+      set((state) => {
+        const idx = state.examples.findIndex((e) => e.id === id)
+        if (idx === -1) return
+        state.examples.splice(idx, 1)
+
+        if (state.activeExampleId === id) {
+          const next = state.examples[idx] ?? state.examples[idx - 1] ?? null
+          state.activeExampleId = next?.id ?? null
+        }
+
+        if (state.examples.length === 0) {
+          state.viewingLibrary = false
+        }
       })
     },
 

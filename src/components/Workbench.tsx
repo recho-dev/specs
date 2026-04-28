@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2 } from "lucide-react";
+import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2, Trash2 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
@@ -169,6 +169,7 @@ export default function Workbench() {
   const aiMessageLoading = useWorkbenchStore((s) => s.aiMessageLoading);
   const addExample = useWorkbenchStore((s) => s.addExample);
   const insertExampleAt = useWorkbenchStore((s) => s.insertExampleAt);
+  const deleteExample = useWorkbenchStore((s) => s.deleteExample);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
   const setExampleName = useWorkbenchStore((s) => s.setExampleName);
@@ -181,6 +182,8 @@ export default function Workbench() {
   const [renameDraft, setRenameDraft] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
   const [insertHoverAfterId, setInsertHoverAfterId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const confirmPopupRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!renamingExampleId) return;
@@ -199,6 +202,28 @@ export default function Workbench() {
       setRenameDraft("");
     }
   }, [activeExampleId, renamingExampleId]);
+
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDeleteId(null);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (confirmPopupRef.current && !confirmPopupRef.current.contains(target)) {
+        setConfirmDeleteId(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [confirmDeleteId]);
 
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
@@ -645,6 +670,102 @@ export default function Workbench() {
                           >
                             active
                           </span>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(ex.id);
+                          }}
+                          title="Delete example"
+                          style={{
+                            width: 18,
+                            height: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "none",
+                            background: "none",
+                            color: "#ACA89F",
+                            cursor: "pointer",
+                            borderRadius: 3,
+                            padding: 0,
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = "#C0392B";
+                            (e.currentTarget as HTMLButtonElement).style.background = "#FDECEA";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = "#ACA89F";
+                            (e.currentTarget as HTMLButtonElement).style.background = "none";
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {confirmDeleteId === ex.id && (
+                          <div
+                            ref={confirmPopupRef}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-lg"
+                            style={{
+                              position: "absolute",
+                              right: 10,
+                              top: 50,
+                              zIndex: 50,
+                              width: 186,
+                              padding: 12,
+                              background: "#FFFFFF",
+                              border: "1px solid #DDD9D2",
+                              boxShadow: "0 10px 30px rgba(20, 18, 14, 0.08)",
+                            }}
+                          >
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 5 }}>
+                              Delete example?
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 12 }}>
+                              This cannot be undone.
+                            </div>
+                            <div className="flex items-center justify-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{
+                                  height: 30,
+                                  minWidth: 76,
+                                  padding: "0 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #DDD9D2",
+                                  background: "#ECEAE6",
+                                  color: "#3A3834",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  deleteExample(ex.id);
+                                  setConfirmDeleteId(null);
+                                }}
+                                style={{
+                                  height: 30,
+                                  minWidth: 76,
+                                  padding: "0 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #C0392B",
+                                  background: "#C0392B",
+                                  color: "#FFFFFF",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
                         )}
                         <button
                           onClick={(e) => {
