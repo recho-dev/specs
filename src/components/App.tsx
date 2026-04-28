@@ -5,6 +5,7 @@ import ExportModal from './ExportModal'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import { ipc } from '@/lib/ipc'
 import type { ExportMeta } from '@/types'
+import { Download } from 'lucide-react'
 
 function getBasename(p: string): string {
   const normalized = p.replaceAll('\\', '/')
@@ -72,23 +73,26 @@ export default function App() {
           </div>
         )}
         {isProjectLoaded && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-5">
+          <div className="absolute inset-y-0 right-0 flex items-center pr-4">
             <button
               onClick={() => setExportOpen(true)}
               style={{
-                height: 24, padding: '0 10px', border: 'none', background: 'none',
-                color: '#8A8780', borderRadius: 4, cursor: 'pointer',
-                fontSize: 12, fontWeight: 600,
+                height: 26, padding: '0 12px',
+                border: '1px solid #CCC8C0', background: '#FAF9F7',
+                color: '#3A3834', borderRadius: 6, cursor: 'pointer',
+                fontSize: 11, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5,
+                whiteSpace: 'nowrap', transition: 'background 0.1s, border-color 0.1s',
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = '#DDD9D2'
-                ;(e.currentTarget as HTMLButtonElement).style.color = '#3A3834'
+                (e.currentTarget as HTMLButtonElement).style.background = '#EBE8E2'
+                ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#B5B0A6'
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'none'
-                ;(e.currentTarget as HTMLButtonElement).style.color = '#8A8780'
+                (e.currentTarget as HTMLButtonElement).style.background = '#FAF9F7'
+                ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#CCC8C0'
               }}
             >
+              <Download size={11} />
               Export
             </button>
           </div>
