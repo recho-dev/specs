@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { ClockIcon, SendIcon, SpinnerIcon } from "./UI";
+import { ChatIcon, ClockIcon, SendIcon, SpinnerIcon } from "./UI";
 
 export type FooterMode = null | "ask";
 
@@ -112,20 +112,31 @@ export default function Footer({
             type="button"
             onClick={onToggleAsk}
             disabled={isGenerating}
+            title="Chat"
             style={{
-              flex: 1,
+              width: 34,
               height: 34,
               borderRadius: 6,
               border: "1px solid #CCC8C0",
               background: footerMode === "ask" ? "#EAE7F5" : "#FAF9F7",
-              color: footerMode === "ask" ? "#5B47D0" : "#3A3834",
-              fontSize: "13px",
-              fontWeight: 500,
+              color: footerMode === "ask" ? "#5B47D0" : "#8A8780",
               cursor: isGenerating ? "default" : "pointer",
-              letterSpacing: "0.02em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              if (isGenerating) return;
+              (e.currentTarget as HTMLButtonElement).style.background = footerMode === "ask" ? "#EAE7F5" : "#DDD9D2";
+              (e.currentTarget as HTMLButtonElement).style.color = footerMode === "ask" ? "#5B47D0" : "#3A3834";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = footerMode === "ask" ? "#EAE7F5" : "#FAF9F7";
+              (e.currentTarget as HTMLButtonElement).style.color = footerMode === "ask" ? "#5B47D0" : "#8A8780";
             }}
           >
-            Chat
+            <ChatIcon />
           </button>
 
           <button

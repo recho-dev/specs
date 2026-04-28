@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2, GripVertical } from "lucide-react";
+import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2, GripVertical, MessageSquare } from "lucide-react";
 import type { ExampleStatus } from "@/types";
 
 export function FileIcon() {
@@ -41,6 +41,10 @@ export function SpinnerIcon() {
 
 export function DragHandleIcon() {
   return <GripVertical size={16} />;
+}
+
+export function ChatIcon() {
+  return <MessageSquare size={16} />;
 }
 
 export function InsertBetweenButton({ onClick }: { onClick: () => void }) {
