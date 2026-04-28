@@ -55,6 +55,7 @@ interface WorkbenchStore {
 
   addExample: () => void
   setExampleCode: (id: string, code: string) => void
+  setExampleName: (id: string, name: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
   appendConsoleLine: (id: string, line: ConsoleLine) => void
   setActiveExample: (id: string) => void
@@ -182,6 +183,13 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((state) => {
         const ex = state.examples.find((e) => e.id === id)
         if (ex) ex.code = code
+      })
+    },
+
+    setExampleName: (id, name) => {
+      set((state) => {
+        const ex = state.examples.find((e) => e.id === id)
+        if (ex) ex.name = name
       })
     },
 

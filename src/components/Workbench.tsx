@@ -136,10 +136,33 @@ export default function Workbench() {
   const addExample = useWorkbenchStore((s) => s.addExample);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
+  const setExampleName = useWorkbenchStore((s) => s.setExampleName);
   const generate = useWorkbenchStore((s) => s.generate);
   const refine = useWorkbenchStore((s) => s.refine);
   const answerSpecQuestion = useWorkbenchStore((s) => s.answerSpecQuestion);
   const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
+
+  const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!renamingExampleId) return;
+    // Focus/select after the input mounts
+    const t = setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [renamingExampleId]);
+
+  useEffect(() => {
+    // If selection changes away, stop renaming
+    if (renamingExampleId && activeExampleId !== renamingExampleId) {
+      setRenamingExampleId(null);
+      setRenameDraft("");
+    }
+  }, [activeExampleId, renamingExampleId]);
 
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
@@ -481,6 +504,7 @@ export default function Workbench() {
               {examples.map((ex) => {
                 const isActive = ex.id === activeExampleId;
                 const expanded = isExpanded(ex.id);
+                const isRenaming = renamingExampleId === ex.id;
                 return (
                   <div
                     key={ex.id}
@@ -505,12 +529,69 @@ export default function Workbench() {
                       <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
                         <FileIcon />
                       </span>
-                      <span
-                        className="flex-1 min-w-0 truncate"
-                        style={{ fontSize: "13px", fontWeight: 500, color: "#3A3834" }}
-                      >
-                        {exampleDisplayTitle(ex.name)}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        {isRenaming ? (
+                          <input
+                            ref={renameInputRef}
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setRenamingExampleId(null);
+                                setRenameDraft("");
+                                return;
+                              }
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const next = renameDraft.trim();
+                                if (next) setExampleName(ex.id, next);
+                                setRenamingExampleId(null);
+                                setRenameDraft("");
+                              }
+                            }}
+                            onBlur={() => {
+                              const next = renameDraft.trim();
+                              if (next) setExampleName(ex.id, next);
+                              setRenamingExampleId(null);
+                              setRenameDraft("");
+                            }}
+                            style={{
+                              width: "100%",
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "#3A3834",
+                              background: "white",
+                              border: "1px solid #DDD9D2",
+                              borderRadius: 6,
+                              padding: "4px 8px",
+                              outline: "none",
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="block min-w-0 truncate"
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "#3A3834",
+                              cursor: isActive ? "text" : "default",
+                            }}
+                            title={isActive ? "Click to rename" : undefined}
+                            onClick={(e) => {
+                              if (!isActive) return;
+                              e.stopPropagation();
+                              setRenamingExampleId(ex.id);
+                              setRenameDraft(ex.name);
+                            }}
+                          >
+                            {exampleDisplayTitle(ex.name)}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <StatusBadge status={ex.status} />
                         {isActive && (
