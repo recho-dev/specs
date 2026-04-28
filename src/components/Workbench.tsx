@@ -718,10 +718,10 @@ export default function Workbench() {
                               boxShadow: "0 10px 30px rgba(20, 18, 14, 0.08)",
                             }}
                           >
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 5 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 3 }}>
                               Delete example?
                             </div>
-                            <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 12 }}>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 8 }}>
                               This cannot be undone.
                             </div>
                             <div className="flex items-center justify-start gap-2">
