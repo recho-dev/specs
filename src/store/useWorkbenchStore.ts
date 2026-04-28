@@ -54,14 +54,10 @@ interface WorkbenchStore {
   dismissAiMessage: () => void
 
   addExample: () => void
-  removeExample: (id: string) => void
-  renameExample: (id: string, name: string) => void
   setExampleCode: (id: string, code: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
   appendConsoleLine: (id: string, line: ConsoleLine) => void
-  clearConsoleOutput: (id: string) => void
   setActiveExample: (id: string) => void
-  setViewingLibrary: (viewing: boolean) => void
 
   setLibraryCode: (code: string) => void
   setGenerating: (isGenerating: boolean) => void
@@ -78,7 +74,6 @@ interface WorkbenchStore {
   _updateVersionDescription: (id: string, description: string) => void
 
   loadProject: (project: LoadedProject) => void
-  unloadProject: () => void
   buildProjectFile: () => ProjectFile
   setProjectPath: (path: string) => void
 
@@ -147,23 +142,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       })
     },
 
-    unloadProject: () => {
-      set((s) => {
-        s.projectPath = null
-        s.isProjectLoaded = false
-        s.examples = []
-        s.library = { code: '', isGenerating: false, generationError: null, streamBuffer: '' }
-        s.activeExampleId = null
-        s.viewingLibrary = false
-        s.versions = []
-        s.activeVersionId = null
-        s.specQuestion = null
-        s.specConversationHistory = []
-        s.pendingRefinementInstruction = ''
-        s.exportMeta = null
-      })
-    },
-
     setProjectPath: (path: string) => {
       set((s) => { s.projectPath = path })
     },
@@ -200,23 +178,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       })
     },
 
-    removeExample: (id) => {
-      set((state) => {
-        const idx = state.examples.findIndex((e) => e.id === id)
-        state.examples.splice(idx, 1)
-        if (state.activeExampleId === id) {
-          state.activeExampleId = state.examples[0]?.id ?? null
-        }
-      })
-    },
-
-    renameExample: (id, name) => {
-      set((state) => {
-        const ex = state.examples.find((e) => e.id === id)
-        if (ex) ex.name = name
-      })
-    },
-
     setExampleCode: (id, code) => {
       set((state) => {
         const ex = state.examples.find((e) => e.id === id)
@@ -241,24 +202,10 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       })
     },
 
-    clearConsoleOutput: (id) => {
-      set((state) => {
-        const ex = state.examples.find((e) => e.id === id)
-        if (ex) ex.consoleOutput = []
-      })
-    },
-
     setActiveExample: (id) => {
       set((state) => {
         state.activeExampleId = id
         state.viewingLibrary = false
-      })
-    },
-
-    setViewingLibrary: (viewing) => {
-      set((state) => {
-        state.viewingLibrary = viewing
-        if (viewing) state.activeExampleId = null
       })
     },
 
