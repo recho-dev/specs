@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Clock, ArrowUp, Loader2 } from "lucide-react";
+import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2, Trash2 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
@@ -26,6 +26,40 @@ function PlusIcon() { return <Plus size={16} />; }
 function ClockIcon() { return <Clock size={16} />; }
 function SendIcon() { return <ArrowUp size={16} />; }
 function SpinnerIcon() { return <Loader2 size={16} className="animate-spin" />; }
+
+function InsertBetweenButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-label="Insert new example"
+      title="Insert new example"
+      style={{
+        width: 22,
+        height: 22,
+        border: "none",
+        background: "transparent",
+        color: hovered ? "#8B7FF0" : "#B9B5AE",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        boxShadow: "none",
+        transition: "color 0.12s",
+        position: "relative",
+        zIndex: 20,
+        padding: 0,
+      }}
+    >
+      <CirclePlus size={20} strokeWidth={2} />
+    </button>
+  );
+}
 
 function StatusBadge({ status }: { status: ExampleStatus }) {
   if (status === "idle") return null;
@@ -134,12 +168,62 @@ export default function Workbench() {
   const aiMessage = useWorkbenchStore((s) => s.aiMessage);
   const aiMessageLoading = useWorkbenchStore((s) => s.aiMessageLoading);
   const addExample = useWorkbenchStore((s) => s.addExample);
+  const insertExampleAt = useWorkbenchStore((s) => s.insertExampleAt);
+  const deleteExample = useWorkbenchStore((s) => s.deleteExample);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
+  const setExampleName = useWorkbenchStore((s) => s.setExampleName);
   const generate = useWorkbenchStore((s) => s.generate);
   const refine = useWorkbenchStore((s) => s.refine);
   const answerSpecQuestion = useWorkbenchStore((s) => s.answerSpecQuestion);
   const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
+
+  const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const [insertHoverAfterId, setInsertHoverAfterId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const confirmPopupRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!renamingExampleId) return;
+    // Focus/select after the input mounts
+    const t = setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [renamingExampleId]);
+
+  useEffect(() => {
+    // If selection changes away, stop renaming
+    if (renamingExampleId && activeExampleId !== renamingExampleId) {
+      setRenamingExampleId(null);
+      setRenameDraft("");
+    }
+  }, [activeExampleId, renamingExampleId]);
+
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDeleteId(null);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (confirmPopupRef.current && !confirmPopupRef.current.contains(target)) {
+        setConfirmDeleteId(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [confirmDeleteId]);
 
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<null | 'ask'>(null);
@@ -478,22 +562,24 @@ export default function Workbench() {
           {examples.length > 0 && (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: "14px 14px 0" }}>
             <div className="flex flex-col gap-4">
-              {examples.map((ex) => {
+              {examples.map((ex, idx) => {
                 const isActive = ex.id === activeExampleId;
                 const expanded = isExpanded(ex.id);
+                const isRenaming = renamingExampleId === ex.id;
+                const isLast = idx === examples.length - 1;
                 return (
-                  <div
-                    key={ex.id}
-                    className="rounded-lg overflow-hidden shrink-0"
-                    style={{
-                      border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
-                      background: "#FDFCFA",
-                      boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
-                      transition: "border-color 0.15s, box-shadow 0.15s",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setActiveExample(ex.id)}
-                  >
+                  <div key={ex.id} className="shrink-0" style={{ position: "relative" }}>
+                    <div
+                      className="rounded-lg overflow-hidden"
+                      style={{
+                        border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
+                        background: "#FDFCFA",
+                        boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
+                        transition: "border-color 0.15s, box-shadow 0.15s",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setActiveExample(ex.id)}
+                    >
                     <div
                       className="flex items-center gap-2 px-4 shrink-0"
                       style={{
@@ -505,12 +591,69 @@ export default function Workbench() {
                       <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
                         <FileIcon />
                       </span>
-                      <span
-                        className="flex-1 min-w-0 truncate"
-                        style={{ fontSize: "13px", fontWeight: 500, color: "#3A3834" }}
-                      >
-                        {exampleDisplayTitle(ex.name)}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        {isRenaming ? (
+                          <input
+                            ref={renameInputRef}
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setRenamingExampleId(null);
+                                setRenameDraft("");
+                                return;
+                              }
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const next = renameDraft.trim();
+                                if (next) setExampleName(ex.id, next);
+                                setRenamingExampleId(null);
+                                setRenameDraft("");
+                              }
+                            }}
+                            onBlur={() => {
+                              const next = renameDraft.trim();
+                              if (next) setExampleName(ex.id, next);
+                              setRenamingExampleId(null);
+                              setRenameDraft("");
+                            }}
+                            style={{
+                              width: "100%",
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "#3A3834",
+                              background: "white",
+                              border: "1px solid #DDD9D2",
+                              borderRadius: 6,
+                              padding: "4px 8px",
+                              outline: "none",
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="block min-w-0 truncate"
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "#3A3834",
+                              cursor: isActive ? "text" : "default",
+                            }}
+                            title={isActive ? "Click to rename" : undefined}
+                            onClick={(e) => {
+                              if (!isActive) return;
+                              e.stopPropagation();
+                              setRenamingExampleId(ex.id);
+                              setRenameDraft(ex.name);
+                            }}
+                          >
+                            {exampleDisplayTitle(ex.name)}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <StatusBadge status={ex.status} />
                         {isActive && (
@@ -527,6 +670,102 @@ export default function Workbench() {
                           >
                             active
                           </span>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(ex.id);
+                          }}
+                          title="Delete example"
+                          style={{
+                            width: 18,
+                            height: 18,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "none",
+                            background: "none",
+                            color: "#ACA89F",
+                            cursor: "pointer",
+                            borderRadius: 3,
+                            padding: 0,
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = "#C0392B";
+                            (e.currentTarget as HTMLButtonElement).style.background = "#FDECEA";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = "#ACA89F";
+                            (e.currentTarget as HTMLButtonElement).style.background = "none";
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {confirmDeleteId === ex.id && (
+                          <div
+                            ref={confirmPopupRef}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-lg"
+                            style={{
+                              position: "absolute",
+                              right: 10,
+                              top: 50,
+                              zIndex: 50,
+                              width: 186,
+                              padding: 12,
+                              background: "#FFFFFF",
+                              border: "1px solid #DDD9D2",
+                              boxShadow: "0 10px 30px rgba(20, 18, 14, 0.08)",
+                            }}
+                          >
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 3 }}>
+                              Delete example?
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 8 }}>
+                              This cannot be undone.
+                            </div>
+                            <div className="flex items-center justify-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{
+                                  height: 30,
+                                  minWidth: 76,
+                                  padding: "0 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #DDD9D2",
+                                  background: "#ECEAE6",
+                                  color: "#3A3834",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  deleteExample(ex.id);
+                                  setConfirmDeleteId(null);
+                                }}
+                                style={{
+                                  height: 30,
+                                  minWidth: 76,
+                                  padding: "0 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #C0392B",
+                                  background: "#C0392B",
+                                  color: "#FFFFFF",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
                         )}
                         <button
                           onClick={(e) => {
@@ -552,7 +791,7 @@ export default function Workbench() {
                         </button>
                       </div>
                     </div>
-                    <div style={expanded ? undefined : { height: 0, overflow: 'hidden' }}>
+                    <div style={expanded ? undefined : { height: 0, overflow: "hidden" }}>
                       <CodeEditor
                         value={ex.code}
                         onChange={(v) => setExampleCode(ex.id, v)}
@@ -560,6 +799,30 @@ export default function Workbench() {
                         autoHeight
                       />
                     </div>
+                    </div>
+
+                    {!isLast && (
+                      <div
+                        onMouseEnter={() => setInsertHoverAfterId(ex.id)}
+                        onMouseLeave={() => setInsertHoverAfterId((cur) => (cur === ex.id ? null : cur))}
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          top: "100%",
+                          height: 16, // matches `gap-4` so spacing stays unchanged
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          pointerEvents: "auto",
+                          zIndex: 20,
+                        }}
+                      >
+                        <div style={{ opacity: insertHoverAfterId === ex.id ? 1 : 0, transition: "opacity 0.12s" }}>
+                          <InsertBetweenButton onClick={() => insertExampleAt(idx + 1)} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

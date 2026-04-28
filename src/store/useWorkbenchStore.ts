@@ -54,7 +54,10 @@ interface WorkbenchStore {
   dismissAiMessage: () => void
 
   addExample: () => void
+  insertExampleAt: (index: number) => void
+  deleteExample: (id: string) => void
   setExampleCode: (id: string, code: string) => void
+  setExampleName: (id: string, name: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
   appendConsoleLine: (id: string, line: ConsoleLine) => void
   setActiveExample: (id: string) => void
@@ -178,10 +181,52 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       })
     },
 
+    insertExampleAt: (index) => {
+      const id = nanoid()
+      set((state) => {
+        const next = {
+          id,
+          name: 'untitled.js',
+          code: DEFAULT_EXAMPLE_CODE,
+          status: 'idle' as ExampleStatus,
+          error: null,
+          consoleOutput: [],
+        }
+        const clamped = Math.max(0, Math.min(index, state.examples.length))
+        state.examples.splice(clamped, 0, next)
+        state.activeExampleId = id
+        state.viewingLibrary = false
+      })
+    },
+
+    deleteExample: (id) => {
+      set((state) => {
+        const idx = state.examples.findIndex((e) => e.id === id)
+        if (idx === -1) return
+        state.examples.splice(idx, 1)
+
+        if (state.activeExampleId === id) {
+          const next = state.examples[idx] ?? state.examples[idx - 1] ?? null
+          state.activeExampleId = next?.id ?? null
+        }
+
+        if (state.examples.length === 0) {
+          state.viewingLibrary = false
+        }
+      })
+    },
+
     setExampleCode: (id, code) => {
       set((state) => {
         const ex = state.examples.find((e) => e.id === id)
         if (ex) ex.code = code
+      })
+    },
+
+    setExampleName: (id, name) => {
+      set((state) => {
+        const ex = state.examples.find((e) => e.id === id)
+        if (ex) ex.name = name
       })
     },
 
