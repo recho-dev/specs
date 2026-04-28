@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ExportMeta } from '@/types'
+import { Loader2 } from 'lucide-react'
 
 interface Props {
   defaultName: string
@@ -56,13 +57,7 @@ function Field({
   )
 }
 
-function SpinnerIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="animate-spin">
-      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="22 10" />
-    </svg>
-  )
-}
+function SpinnerIcon() { return <Loader2 size={16} className="animate-spin" />; }
 
 export default function ExportModal({ defaultName, initialMeta, onClose, onExport }: Props) {
   const [name, setName] = useState(initialMeta?.name ?? defaultName)

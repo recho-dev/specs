@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Terminal } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import { readPanelLayout, savePanelLayout } from "@/lib/panelLayout";
@@ -6,15 +7,7 @@ import type { SandboxInboundMessage } from "@/types";
 import PreviewFrame from "./PreviewFrame";
 import ConsoleLog from "./ConsoleLog";
 
-function TerminalIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <rect x="1.5" y="2.5" width="10" height="8" rx="1.5" />
-      <path d="M4 5.5l2 1.5-2 1.5" />
-      <path d="M7.5 8.5h2" />
-    </svg>
-  );
-}
+function TerminalIcon() { return <Terminal size={16} />; }
 
 function exampleDisplayTitle(name: string) {
   return /\.\w+$/.test(name) ? name : `${name}.js`;
@@ -122,11 +115,6 @@ export default function PreviewPanel() {
           >
             Preview
           </span>
-          {displayedExample && (
-            <span className="text-[13px] truncate" style={{ color: "#8A8780" }}>
-              {exampleDisplayTitle(displayedExample.name)}
-            </span>
-          )}
         </span>
         <div className="flex items-center gap-2 shrink-0">
           {statusKind !== "idle" && (

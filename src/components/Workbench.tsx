@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Clock, ArrowUp, Loader2 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
@@ -15,81 +16,16 @@ function exampleDisplayTitle(name: string) {
   return /\.\w+$/.test(name) ? name : `${name}.js`;
 }
 
-function FileIcon() {
-  return (
-    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" width={14} height={14}>
-      <path d="M3 1h5.5L11 3.5V13H3V1z" />
-      <path d="M8.5 1v3H11" />
-    </svg>
-  );
-}
-
+function FileIcon() { return <File size={16} />; }
 function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-    >
-      <path d="M2 3.5l3 3 3-3" />
-    </svg>
-  );
+  return <ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }} />;
 }
-
-function CollapseLeftIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 2.5L4 6l3 3.5" />
-      <line x1="2" y1="2" x2="2" y2="10" />
-    </svg>
-  );
-}
-
-function ExpandRightIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 2.5L8 6l-3 3.5" />
-      <line x1="10" y1="2" x2="10" y2="10" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
-      <path d="M5 1v8M1 5h8" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <circle cx="6" cy="6" r="4.5" />
-      <path d="M6 3.5V6l1.5 1.5" />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path d="M6 9V3M3.5 5.5L6 3l2.5 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SpinnerIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="animate-spin">
-      <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="18 8" />
-    </svg>
-  );
-}
+function CollapseLeftIcon() { return <PanelLeftClose size={16} />; }
+function ExpandRightIcon() { return <PanelLeftOpen size={16} />; }
+function PlusIcon() { return <Plus size={16} />; }
+function ClockIcon() { return <Clock size={16} />; }
+function SendIcon() { return <ArrowUp size={16} />; }
+function SpinnerIcon() { return <Loader2 size={16} className="animate-spin" />; }
 
 function StatusBadge({ status }: { status: ExampleStatus }) {
   if (status === "idle") return null;
@@ -541,7 +477,7 @@ export default function Workbench() {
 
           {examples.length > 0 && (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: "14px 14px 0" }}>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               {examples.map((ex) => {
                 const isActive = ex.id === activeExampleId;
                 const expanded = isExpanded(ex.id);
@@ -616,14 +552,14 @@ export default function Workbench() {
                         </button>
                       </div>
                     </div>
-                    {expanded && (
+                    <div style={expanded ? undefined : { height: 0, overflow: 'hidden' }}>
                       <CodeEditor
                         value={ex.code}
                         onChange={(v) => setExampleCode(ex.id, v)}
                         editorBackground="#FDFCFA"
                         autoHeight
                       />
-                    )}
+                    </div>
                   </div>
                 );
               })}

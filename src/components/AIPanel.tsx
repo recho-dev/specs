@@ -1,27 +1,9 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { Sparkles, X } from 'lucide-react'
 
-function SparkleIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path
-        d="M7 1.5C7 1.5 7.5 4.5 9.5 6.5C11.5 8.5 13 8.5 13 8.5C13 8.5 11.5 8.5 9.5 10.5C7.5 12.5 7 13.5 7 13.5C7 13.5 6.5 12.5 4.5 10.5C2.5 8.5 1 8.5 1 8.5C1 8.5 2.5 8.5 4.5 6.5C6.5 4.5 7 1.5 7 1.5Z"
-        fill="#5B47D0"
-        stroke="#5B47D0"
-        strokeWidth="0.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
-      <path d="M3 3l8 8M11 3l-8 8" />
-    </svg>
-  )
-}
+function SparkleIcon() { return <Sparkles size={16} color="#5B47D0" />; }
+function CloseIcon() { return <X size={16} />; }
 
 export type AIPanelMode = 'api-key' | 'spec-question' | 'message' | null
 export interface ApiKeyStatus { ok: boolean; text: string }
