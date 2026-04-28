@@ -37,6 +37,7 @@ export default function Workbench() {
   const generate = useWorkbenchStore((s) => s.generate);
   const refine = useWorkbenchStore((s) => s.refine);
   const answerSpecQuestion = useWorkbenchStore((s) => s.answerSpecQuestion);
+  const reorderExamples = useWorkbenchStore((s) => s.reorderExamples);
   const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
 
   const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
@@ -373,6 +374,7 @@ export default function Workbench() {
             confirmPopupRef={confirmPopupRef}
             isExpanded={isExpanded}
             toggleExpand={toggleExpand}
+            reorderExamples={reorderExamples}
             displayTitle={exampleDisplayTitle}
           />
 

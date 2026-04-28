@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Terminal } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
@@ -173,7 +173,10 @@ export default function PreviewPanel() {
             </div>
           )}
           {libraryCode &&
-            examples.map((ex) => (
+            // Sort by id for a stable DOM order. Drag-to-reorder changes array
+            // order but not ids, so iframes never move in the DOM (moving an
+            // iframe causes the browser to reload it, blanking the preview).
+            [...examples].sort((a, b) => (a.id < b.id ? -1 : 1)).map((ex) => (
               <PreviewFrame
                 key={ex.id}
                 exampleId={ex.id}
