@@ -22,14 +22,6 @@ export interface LibraryState {
   streamBuffer: string;
 }
 
-// postMessage protocol: parent → iframe
-export interface RunCodeMessage {
-  type: "RUN_CODE";
-  exampleId: string;
-  libraryCode: string;
-  exampleCode: string;
-}
-
 // postMessage protocol: iframe → parent
 export interface RunResultMessage {
   type: "RUN_RESULT";

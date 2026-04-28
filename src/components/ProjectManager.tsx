@@ -12,7 +12,6 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 
 export default function ProjectManager() {
   const loadProject = useWorkbenchStore((s) => s.loadProject)
-  const unloadProject = useWorkbenchStore((s) => s.unloadProject)
   const setProjectPath = useWorkbenchStore((s) => s.setProjectPath)
 
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function ProjectManager() {
       ipc.offMenu('open-project')
       ipc.offMenu('save-project')
     }
-  }, [loadProject, unloadProject])
+  }, [loadProject])
 
   return null
 }
