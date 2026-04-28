@@ -54,6 +54,7 @@ interface WorkbenchStore {
   dismissAiMessage: () => void
 
   addExample: () => void
+  insertExampleAt: (index: number) => void
   setExampleCode: (id: string, code: string) => void
   setExampleName: (id: string, name: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
@@ -174,6 +175,24 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           error: null,
           consoleOutput: [],
         })
+        state.activeExampleId = id
+        state.viewingLibrary = false
+      })
+    },
+
+    insertExampleAt: (index) => {
+      const id = nanoid()
+      set((state) => {
+        const next = {
+          id,
+          name: 'untitled.js',
+          code: DEFAULT_EXAMPLE_CODE,
+          status: 'idle' as ExampleStatus,
+          error: null,
+          consoleOutput: [],
+        }
+        const clamped = Math.max(0, Math.min(index, state.examples.length))
+        state.examples.splice(clamped, 0, next)
         state.activeExampleId = id
         state.viewingLibrary = false
       })

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Clock, ArrowUp, Loader2 } from "lucide-react";
+import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import type { ExampleStatus } from "@/types";
@@ -26,6 +26,40 @@ function PlusIcon() { return <Plus size={16} />; }
 function ClockIcon() { return <Clock size={16} />; }
 function SendIcon() { return <ArrowUp size={16} />; }
 function SpinnerIcon() { return <Loader2 size={16} className="animate-spin" />; }
+
+function InsertBetweenButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-label="Insert new example"
+      title="Insert new example"
+      style={{
+        width: 22,
+        height: 22,
+        border: "none",
+        background: "transparent",
+        color: hovered ? "#8B7FF0" : "#B9B5AE",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        boxShadow: "none",
+        transition: "color 0.12s",
+        position: "relative",
+        zIndex: 20,
+        padding: 0,
+      }}
+    >
+      <CirclePlus size={20} strokeWidth={2} />
+    </button>
+  );
+}
 
 function StatusBadge({ status }: { status: ExampleStatus }) {
   if (status === "idle") return null;
@@ -134,6 +168,7 @@ export default function Workbench() {
   const aiMessage = useWorkbenchStore((s) => s.aiMessage);
   const aiMessageLoading = useWorkbenchStore((s) => s.aiMessageLoading);
   const addExample = useWorkbenchStore((s) => s.addExample);
+  const insertExampleAt = useWorkbenchStore((s) => s.insertExampleAt);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
   const setExampleName = useWorkbenchStore((s) => s.setExampleName);
@@ -145,6 +180,7 @@ export default function Workbench() {
   const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const [insertHoverAfterId, setInsertHoverAfterId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!renamingExampleId) return;
@@ -501,23 +537,24 @@ export default function Workbench() {
           {examples.length > 0 && (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: "14px 14px 0" }}>
             <div className="flex flex-col gap-4">
-              {examples.map((ex) => {
+              {examples.map((ex, idx) => {
                 const isActive = ex.id === activeExampleId;
                 const expanded = isExpanded(ex.id);
                 const isRenaming = renamingExampleId === ex.id;
+                const isLast = idx === examples.length - 1;
                 return (
-                  <div
-                    key={ex.id}
-                    className="rounded-lg overflow-hidden shrink-0"
-                    style={{
-                      border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
-                      background: "#FDFCFA",
-                      boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
-                      transition: "border-color 0.15s, box-shadow 0.15s",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setActiveExample(ex.id)}
-                  >
+                  <div key={ex.id} className="shrink-0" style={{ position: "relative" }}>
+                    <div
+                      className="rounded-lg overflow-hidden"
+                      style={{
+                        border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
+                        background: "#FDFCFA",
+                        boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
+                        transition: "border-color 0.15s, box-shadow 0.15s",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setActiveExample(ex.id)}
+                    >
                     <div
                       className="flex items-center gap-2 px-4 shrink-0"
                       style={{
@@ -633,7 +670,7 @@ export default function Workbench() {
                         </button>
                       </div>
                     </div>
-                    <div style={expanded ? undefined : { height: 0, overflow: 'hidden' }}>
+                    <div style={expanded ? undefined : { height: 0, overflow: "hidden" }}>
                       <CodeEditor
                         value={ex.code}
                         onChange={(v) => setExampleCode(ex.id, v)}
@@ -641,6 +678,30 @@ export default function Workbench() {
                         autoHeight
                       />
                     </div>
+                    </div>
+
+                    {!isLast && (
+                      <div
+                        onMouseEnter={() => setInsertHoverAfterId(ex.id)}
+                        onMouseLeave={() => setInsertHoverAfterId((cur) => (cur === ex.id ? null : cur))}
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          top: "100%",
+                          height: 16, // matches `gap-4` so spacing stays unchanged
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          pointerEvents: "auto",
+                          zIndex: 20,
+                        }}
+                      >
+                        <div style={{ opacity: insertHoverAfterId === ex.id ? 1 : 0, transition: "opacity 0.12s" }}>
+                          <InsertBetweenButton onClick={() => insertExampleAt(idx + 1)} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
