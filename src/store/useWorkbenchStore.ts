@@ -61,6 +61,7 @@ interface WorkbenchStore {
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
   appendConsoleLine: (id: string, line: ConsoleLine) => void
   setActiveExample: (id: string) => void
+  reorderExamples: (orderedIds: string[]) => void
 
   setLibraryCode: (code: string) => void
   setGenerating: (isGenerating: boolean) => void
@@ -251,6 +252,16 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((state) => {
         state.activeExampleId = id
         state.viewingLibrary = false
+      })
+    },
+
+    reorderExamples: (orderedIds) => {
+      set((state) => {
+        const map = new Map(state.examples.map((e) => [e.id, e]))
+        state.examples = orderedIds.flatMap((id) => {
+          const e = map.get(id)
+          return e ? [e] : []
+        })
       })
     },
 

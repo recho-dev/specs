@@ -1,32 +1,32 @@
+import { useRef, useState } from "react";
 import type { RefObject } from "react";
 import { Trash2 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Example } from "@/types";
 import CodeEditor from "../editor/CodeEditor";
-import { AddExampleButton, ChevronIcon, FileIcon, InsertBetweenButton, StatusBadge } from "./UI";
+import {
+  AddExampleButton,
+  ChevronIcon,
+  DragHandleIcon,
+  FileIcon,
+  InsertBetweenButton,
+  StatusBadge,
+} from "./UI";
 
-export default function ExamplesList({
-  examples,
-  activeExampleId,
-  addExample,
-  insertExampleAt,
-  deleteExample,
-  setActiveExample,
-  setExampleCode,
-  setExampleName,
-  renamingExampleId,
-  setRenamingExampleId,
-  renameDraft,
-  setRenameDraft,
-  renameInputRef,
-  insertHoverAfterId,
-  setInsertHoverAfterId,
-  confirmDeleteId,
-  setConfirmDeleteId,
-  confirmPopupRef,
-  isExpanded,
-  toggleExpand,
-  displayTitle,
-}: {
+type ExamplesListProps = {
   examples: Example[];
   activeExampleId: string | null;
   addExample: () => void;
@@ -47,8 +47,399 @@ export default function ExamplesList({
   confirmPopupRef: RefObject<HTMLDivElement | null>;
   isExpanded: (id: string) => boolean;
   toggleExpand: (id: string) => void;
+  reorderExamples: (orderedIds: string[]) => void;
   displayTitle: (name: string) => string;
-}) {
+};
+
+type CardProps = ExamplesListProps & {
+  ex: Example;
+  idx: number;
+  isLast: boolean;
+};
+
+function SortableExampleCard(props: CardProps) {
+  const { ex, idx, isLast, activeExampleId, renamingExampleId, insertHoverAfterId, confirmDeleteId, confirmPopupRef } = props;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ex.id });
+
+  const isActive = ex.id === activeExampleId;
+  const expanded = props.isExpanded(ex.id);
+  const isRenaming = renamingExampleId === ex.id;
+
+  const wrapperStyle = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    position: "relative" as const,
+  };
+
+  return (
+    <div ref={setNodeRef} style={wrapperStyle} className="shrink-0">
+      {/* Placeholder outline shown while this card is the active drag item */}
+      {isDragging && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0,
+            height: 42,
+            borderRadius: 8,
+            border: "1px dashed #C5C0F0",
+            background: "#F0EEFF",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/*
+        Always render the full card (including Monaco) so it is never
+        unmounted during drag. Hiding via visibility keeps Monaco alive
+        and avoids the "InstantiationService has been disposed" crash.
+      */}
+      <div style={{ visibility: isDragging ? "hidden" : "visible" }}>
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{
+            border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
+            background: "#FDFCFA",
+            boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+            cursor: "pointer",
+          }}
+          onClick={() => props.setActiveExample(ex.id)}
+        >
+          <div
+            className="flex items-center gap-2 px-3 shrink-0"
+            style={{
+              height: 42,
+              borderBottom: expanded ? "1px solid #EBE8E2" : "1px solid transparent",
+              background: isActive ? "#F8F6FF" : "transparent",
+            }}
+          >
+            {/* Drag handle */}
+            <span
+              {...attributes}
+              {...listeners}
+              style={{
+                color: "#ACA89F",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                cursor: "grab",
+                touchAction: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DragHandleIcon />
+            </span>
+
+            <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
+              <FileIcon />
+            </span>
+
+            <div className="flex-1 min-w-0">
+              {isRenaming ? (
+                <input
+                  ref={props.renameInputRef}
+                  value={props.renameDraft}
+                  onChange={(e) => props.setRenameDraft(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      props.setRenamingExampleId(null);
+                      props.setRenameDraft("");
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const next = props.renameDraft.trim();
+                      if (next) props.setExampleName(ex.id, next);
+                      props.setRenamingExampleId(null);
+                      props.setRenameDraft("");
+                    }
+                  }}
+                  onBlur={() => {
+                    const next = props.renameDraft.trim();
+                    if (next) props.setExampleName(ex.id, next);
+                    props.setRenamingExampleId(null);
+                    props.setRenameDraft("");
+                  }}
+                  style={{
+                    width: "100%",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#3A3834",
+                    background: "white",
+                    border: "1px solid #DDD9D2",
+                    borderRadius: 6,
+                    padding: "4px 8px",
+                    outline: "none",
+                  }}
+                />
+              ) : (
+                <span
+                  className="block min-w-0 truncate"
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#3A3834",
+                    cursor: isActive ? "text" : "default",
+                  }}
+                  title={isActive ? "Click to rename" : undefined}
+                  onClick={(e) => {
+                    if (!isActive) return;
+                    e.stopPropagation();
+                    props.setRenamingExampleId(ex.id);
+                    props.setRenameDraft(ex.name);
+                  }}
+                >
+                  {props.displayTitle(ex.name)}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <StatusBadge status={ex.status} />
+              {isActive && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    background: "#EBE9FF",
+                    color: "#5B47D0",
+                    letterSpacing: "0.03em",
+                  }}
+                >
+                  active
+                </span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.setConfirmDeleteId(ex.id);
+                }}
+                title="Delete example"
+                style={{
+                  width: 18,
+                  height: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "none",
+                  background: "none",
+                  color: "#ACA89F",
+                  cursor: "pointer",
+                  borderRadius: 3,
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "#C0392B";
+                  (e.currentTarget as HTMLButtonElement).style.background = "#FDECEA";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "#ACA89F";
+                  (e.currentTarget as HTMLButtonElement).style.background = "none";
+                }}
+              >
+                <Trash2 size={14} />
+              </button>
+              {confirmDeleteId === ex.id && (
+                <div
+                  ref={confirmPopupRef}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded-lg"
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: 50,
+                    zIndex: 50,
+                    width: 186,
+                    padding: 12,
+                    background: "#FFFFFF",
+                    border: "1px solid #DDD9D2",
+                    boxShadow: "0 10px 30px rgba(20, 18, 14, 0.08)",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 3 }}>Delete example?</div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 8 }}>
+                    This cannot be undone.
+                  </div>
+                  <div className="flex items-center justify-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => props.setConfirmDeleteId(null)}
+                      style={{
+                        height: 30,
+                        minWidth: 76,
+                        padding: "0 10px",
+                        borderRadius: 6,
+                        border: "1px solid #DDD9D2",
+                        background: "#ECEAE6",
+                        color: "#3A3834",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        props.deleteExample(ex.id);
+                        props.setConfirmDeleteId(null);
+                      }}
+                      style={{
+                        height: 30,
+                        minWidth: 76,
+                        padding: "0 10px",
+                        borderRadius: 6,
+                        border: "1px solid #C0392B",
+                        background: "#C0392B",
+                        color: "#FFFFFF",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.toggleExpand(ex.id);
+                }}
+                title={expanded ? "Collapse" : "Expand"}
+                style={{
+                  width: 18,
+                  height: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "none",
+                  background: "none",
+                  color: "#ACA89F",
+                  cursor: "pointer",
+                  borderRadius: 3,
+                  padding: 0,
+                }}
+              >
+                <ChevronIcon open={expanded} />
+              </button>
+            </div>
+          </div>
+          <div style={expanded ? undefined : { height: 0, overflow: "hidden" }}>
+            <CodeEditor value={ex.code} onChange={(v) => props.setExampleCode(ex.id, v)} editorBackground="#FDFCFA" autoHeight />
+          </div>
+        </div>
+
+        {!isLast && (
+          <div
+            onMouseEnter={() => props.setInsertHoverAfterId(ex.id)}
+            onMouseLeave={() => props.setInsertHoverAfterId((cur) => (cur === ex.id ? null : cur))}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: "100%",
+              height: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "auto",
+              zIndex: 20,
+            }}
+          >
+            <div style={{ opacity: insertHoverAfterId === ex.id ? 1 : 0, transition: "opacity 0.12s" }}>
+              <InsertBetweenButton onClick={() => props.insertExampleAt(idx + 1)} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CardDragOverlay({ ex, displayTitle }: { ex: Example; displayTitle: (n: string) => string }) {
+  return (
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{
+        border: "1px solid #8B7FF0",
+        background: "#FDFCFA",
+        boxShadow: "0 8px 24px rgba(139,127,240,0.25)",
+      }}
+    >
+      <div
+        className="flex items-center gap-2 px-3 shrink-0"
+        style={{ height: 42, background: "#F8F6FF" }}
+      >
+        <span style={{ color: "#ACA89F", flexShrink: 0, display: "flex", alignItems: "center", cursor: "grabbing" }}>
+          <DragHandleIcon />
+        </span>
+        <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
+          <FileIcon />
+        </span>
+        <span className="flex-1 min-w-0 truncate" style={{ fontSize: "13px", fontWeight: 500, color: "#3A3834" }}>
+          {displayTitle(ex.name)}
+        </span>
+        <StatusBadge status={ex.status} />
+      </div>
+    </div>
+  );
+}
+
+export default function ExamplesList(props: ExamplesListProps) {
+  const { examples, addExample, isExpanded, toggleExpand, reorderExamples } = props;
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeExample = activeId ? examples.find((e) => e.id === activeId) ?? null : null;
+  const dragStartExpandedRef = useRef(false);
+
+  function handleDragStart(event: DragStartEvent) {
+    const id = event.active.id as string;
+    setActiveId(id);
+    dragStartExpandedRef.current = isExpanded(id);
+    if (dragStartExpandedRef.current) toggleExpand(id);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const id = event.active.id as string;
+    setActiveId(null);
+
+    // Only re-expand if the card was expanded before dragging started
+    if (dragStartExpandedRef.current && !isExpanded(id)) toggleExpand(id);
+    dragStartExpandedRef.current = false;
+
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const ids = examples.map((e) => e.id);
+      const oldIdx = ids.indexOf(id);
+      const newIdx = ids.indexOf(over.id as string);
+      reorderExamples(arrayMove(ids, oldIdx, newIdx));
+    }
+  }
+
+  function handleDragCancel() {
+    const id = activeId;
+    setActiveId(null);
+    if (id && dragStartExpandedRef.current && !isExpanded(id)) toggleExpand(id);
+    dragStartExpandedRef.current = false;
+  }
+
   if (examples.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
@@ -64,267 +455,33 @@ export default function ExamplesList({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: "14px 14px 0" }}>
-      <div className="flex flex-col gap-4">
-        {examples.map((ex, idx) => {
-          const isActive = ex.id === activeExampleId;
-          const expanded = isExpanded(ex.id);
-          const isRenaming = renamingExampleId === ex.id;
-          const isLast = idx === examples.length - 1;
-          return (
-            <div key={ex.id} className="shrink-0" style={{ position: "relative" }}>
-              <div
-                className="rounded-lg overflow-hidden"
-                style={{
-                  border: isActive ? "1px solid #8B7FF0" : "1px solid #DDD9D2",
-                  background: "#FDFCFA",
-                  boxShadow: isActive ? "0 0 0 2.5px rgba(139,127,240,0.15)" : "none",
-                  transition: "border-color 0.15s, box-shadow 0.15s",
-                  cursor: "pointer",
-                }}
-                onClick={() => setActiveExample(ex.id)}
-              >
-                <div
-                  className="flex items-center gap-2 px-4 shrink-0"
-                  style={{
-                    height: 42,
-                    borderBottom: expanded ? "1px solid #EBE8E2" : "1px solid transparent",
-                    background: isActive ? "#F8F6FF" : "transparent",
-                  }}
-                >
-                  <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
-                    <FileIcon />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    {isRenaming ? (
-                      <input
-                        ref={renameInputRef}
-                        value={renameDraft}
-                        onChange={(e) => setRenameDraft(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setRenamingExampleId(null);
-                            setRenameDraft("");
-                            return;
-                          }
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const next = renameDraft.trim();
-                            if (next) setExampleName(ex.id, next);
-                            setRenamingExampleId(null);
-                            setRenameDraft("");
-                          }
-                        }}
-                        onBlur={() => {
-                          const next = renameDraft.trim();
-                          if (next) setExampleName(ex.id, next);
-                          setRenamingExampleId(null);
-                          setRenameDraft("");
-                        }}
-                        style={{
-                          width: "100%",
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          color: "#3A3834",
-                          background: "white",
-                          border: "1px solid #DDD9D2",
-                          borderRadius: 6,
-                          padding: "4px 8px",
-                          outline: "none",
-                        }}
-                      />
-                    ) : (
-                      <span
-                        className="block min-w-0 truncate"
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          color: "#3A3834",
-                          cursor: isActive ? "text" : "default",
-                        }}
-                        title={isActive ? "Click to rename" : undefined}
-                        onClick={(e) => {
-                          if (!isActive) return;
-                          e.stopPropagation();
-                          setRenamingExampleId(ex.id);
-                          setRenameDraft(ex.name);
-                        }}
-                      >
-                        {displayTitle(ex.name)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusBadge status={ex.status} />
-                    {isActive && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 500,
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          background: "#EBE9FF",
-                          color: "#5B47D0",
-                          letterSpacing: "0.03em",
-                        }}
-                      >
-                        active
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDeleteId(ex.id);
-                      }}
-                      title="Delete example"
-                      style={{
-                        width: 18,
-                        height: 18,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "none",
-                        background: "none",
-                        color: "#ACA89F",
-                        cursor: "pointer",
-                        borderRadius: 3,
-                        padding: 0,
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.color = "#C0392B";
-                        (e.currentTarget as HTMLButtonElement).style.background = "#FDECEA";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.color = "#ACA89F";
-                        (e.currentTarget as HTMLButtonElement).style.background = "none";
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {confirmDeleteId === ex.id && (
-                      <div
-                        ref={confirmPopupRef}
-                        onClick={(e) => e.stopPropagation()}
-                        className="rounded-lg"
-                        style={{
-                          position: "absolute",
-                          right: 10,
-                          top: 50,
-                          zIndex: 50,
-                          width: 186,
-                          padding: 12,
-                          background: "#FFFFFF",
-                          border: "1px solid #DDD9D2",
-                          boxShadow: "0 10px 30px rgba(20, 18, 14, 0.08)",
-                        }}
-                      >
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#3A3834", marginBottom: 3 }}>Delete example?</div>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: "#8A8780", lineHeight: 1.25, marginBottom: 8 }}>
-                          This cannot be undone.
-                        </div>
-                        <div className="flex items-center justify-start gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(null)}
-                            style={{
-                              height: 30,
-                              minWidth: 76,
-                              padding: "0 10px",
-                              borderRadius: 6,
-                              border: "1px solid #DDD9D2",
-                              background: "#ECEAE6",
-                              color: "#3A3834",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              deleteExample(ex.id);
-                              setConfirmDeleteId(null);
-                            }}
-                            style={{
-                              height: 30,
-                              minWidth: 76,
-                              padding: "0 10px",
-                              borderRadius: 6,
-                              border: "1px solid #C0392B",
-                              background: "#C0392B",
-                              color: "#FFFFFF",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExpand(ex.id);
-                      }}
-                      title={expanded ? "Collapse" : "Expand"}
-                      style={{
-                        width: 18,
-                        height: 18,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "none",
-                        background: "none",
-                        color: "#ACA89F",
-                        cursor: "pointer",
-                        borderRadius: 3,
-                        padding: 0,
-                      }}
-                    >
-                      <ChevronIcon open={expanded} />
-                    </button>
-                  </div>
-                </div>
-                <div style={expanded ? undefined : { height: 0, overflow: "hidden" }}>
-                  <CodeEditor value={ex.code} onChange={(v) => setExampleCode(ex.id, v)} editorBackground="#FDFCFA" autoHeight />
-                </div>
-              </div>
+      <DndContext
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SortableContext items={examples.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-4">
+            {examples.map((ex, idx) => (
+              <SortableExampleCard
+                key={ex.id}
+                {...props}
+                ex={ex}
+                idx={idx}
+                isLast={idx === examples.length - 1}
+              />
+            ))}
+            <AddExampleButton onClick={addExample} />
+          </div>
+        </SortableContext>
 
-              {!isLast && (
-                <div
-                  onMouseEnter={() => setInsertHoverAfterId(ex.id)}
-                  onMouseLeave={() => setInsertHoverAfterId((cur) => (cur === ex.id ? null : cur))}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: "100%",
-                    height: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    pointerEvents: "auto",
-                    zIndex: 20,
-                  }}
-                >
-                  <div style={{ opacity: insertHoverAfterId === ex.id ? 1 : 0, transition: "opacity 0.12s" }}>
-                    <InsertBetweenButton onClick={() => insertExampleAt(idx + 1)} />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        <AddExampleButton onClick={addExample} />
-      </div>
+        <DragOverlay dropAnimation={null}>
+          {activeExample ? (
+            <CardDragOverlay ex={activeExample} displayTitle={props.displayTitle} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
-
