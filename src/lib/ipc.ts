@@ -1,4 +1,4 @@
-import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult } from '@/types'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult } from '@/types'
 
 const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI
 
@@ -8,7 +8,7 @@ interface ElectronAPI {
   onGenerateDone: (cb: () => void) => void
   onGenerateError: (cb: (err: string) => void) => void
   offGenerateListeners: () => void
-  invokeSpec: (body: SpecRequestBody) => Promise<SpecResponse>
+  invokeChat: (body: ChatRequestBody) => Promise<ChatPlan>
   invokeSummarize: (body: SummarizeRequestBody) => Promise<{ description: string; aiMessage: string }>
   projectNew: () => Promise<LoadedProject>
   projectOpen: () => Promise<LoadedProject | null>
@@ -28,7 +28,7 @@ export const ipc = {
   onGenerateDone: (cb: () => void) => api().onGenerateDone(cb),
   onGenerateError: (cb: (err: string) => void) => api().onGenerateError(cb),
   offGenerateListeners: () => api().offGenerateListeners(),
-  invokeSpec: (body: SpecRequestBody) => api().invokeSpec(body),
+  invokeChat: (body: ChatRequestBody) => api().invokeChat(body),
   invokeSummarize: (body: SummarizeRequestBody) => api().invokeSummarize(body),
   projectNew: () => api().projectNew(),
   projectOpen: () => api().projectOpen(),

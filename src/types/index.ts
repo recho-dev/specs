@@ -46,28 +46,11 @@ export interface GenerateRequestBody {
   failedExamples: { name: string; code: string; error: string }[];
 }
 
-export interface SpecConversationTurn {
-  question: string;
-  answer: string;
-}
-
 export interface VersionedExample {
   id: string;
   name: string;
   code: string;
 }
-
-
-export interface SpecRequestBody {
-  examples: { id: string; name: string; code: string }[];
-  refinementInstruction: string;
-  conversationHistory: SpecConversationTurn[];
-}
-
-export type SpecResponse =
-  | { type: "question"; question: string }
-  | { type: "update"; examples: { id: string; name: string; code: string }[] }
-  | { type: "passthrough" };
 
 export interface Version {
   id: string
@@ -117,4 +100,38 @@ export interface SummarizeRequestBody {
   currentLibraryCode: string
   previousExamples: VersionedExample[]
   currentExamples: VersionedExample[]
+}
+
+// ── Chat agent types ──────────────────────────────────────────────────────────
+
+export interface ExamplesDiff {
+  added: { id: string; name: string }[]
+  removed: { id: string; name: string }[]
+  modified: { id: string; name: string }[]
+}
+
+export interface ChatRequestBody {
+  instruction: string
+  mode: 'generate' | 'chat'
+  examples: { id: string; name: string; code: string; error?: string | null }[]
+  libraryCode: string
+  diff: ExamplesDiff
+}
+
+export type ChatAction =
+  | { tool: 'update_library' }
+  | { tool: 'add_example'; name: string; code: string }
+  | { tool: 'delete_example'; id: string }
+  | { tool: 'optimize_example'; id: string; code: string }
+  | { tool: 'rename_example'; id: string; name: string }
+
+export type ChatPlan =
+  | { type: 'answer'; text: string }
+  | { type: 'actions'; steps: ChatAction[]; note?: string }
+
+export interface FileDiff {
+  name: string
+  before: string
+  after: string
+  kind: 'added' | 'removed' | 'modified'
 }

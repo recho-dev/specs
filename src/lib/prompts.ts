@@ -1,5 +1,7 @@
-import type { GenerateRequestBody, SpecRequestBody } from "@/types";
+import type { GenerateRequestBody, ChatRequestBody } from "@/types";
 import type Anthropic from "@anthropic-ai/sdk";
+
+// ── Library generation ────────────────────────────────────────────────────────
 
 export const SYSTEM_PROMPT = `You are a JavaScript library code generator. Your ONLY job is to output the complete, working source code of a JavaScript library as a single ES module file.
 
@@ -77,45 +79,99 @@ export function buildGenerationMessages(body: GenerateRequestBody): Anthropic.Me
   ];
 }
 
-export const SPEC_SYSTEM_PROMPT = `You are a JavaScript library API design consultant. Analyze usage examples and respond with one of three actions:
+// ── Chat agent ────────────────────────────────────────────────────────────────
 
-1. {"type":"question","question":"..."} — ask ONE clarifying question when the instruction changes the API in a way that conflicts with existing examples AND you cannot pick a sensible default (e.g. old API vs new API — which to keep?). Max 1 question per response.
+export const CHAT_SYSTEM_PROMPT = `You are an AI assistant embedded in Forma, a tool for building JavaScript libraries by example. You help users manage their library source code and usage examples.
 
-2. {"type":"update","examples":[{"id":"...","name":"...","code":"..."}]} — apply changes and return ALL examples (including unchanged ones). Use this when an instruction clearly changes API shape (method names, argument structure, option keys) — apply it to all affected examples.
+You ALWAYS respond with valid JSON in one of two shapes — no markdown, no code fences, nothing else:
+  {"type":"answer","text":"..."}
+  {"type":"actions","steps":[...],"note":"..."}
 
-3. {"type":"passthrough"} — use this when:
-   - The instruction is about implementation/behavior, not API shape (e.g. "make default color red", "fix the animation", "increase padding")
-   - No instruction given and examples are consistent with each other
+The "note" field on actions is optional — include it only when you made a non-obvious decision the user should know about (e.g. resolved a conflict between examples).
 
-IMPORTANT: Never silently rewrite or normalize examples. If you detect any conflict or inconsistency — whether from an instruction or across examples — always ask the user via a question. Only apply changes via "update" when the user's intent is explicit and unambiguous.
+## Available actions
 
-Return ONLY valid JSON. No markdown, no explanation.`;
+In both modes:
+  {"tool":"update_library"} — regenerate the library to make all current examples work
+  {"tool":"delete_example","id":"..."} — remove an example by id
+  {"tool":"optimize_example","id":"...","code":"..."} — rewrite an example's code in full (fix syntax errors, resolve API conflicts, rename methods)
 
-export function buildSpecMessages(body: SpecRequestBody): Anthropic.MessageParam[] {
-  const { examples, refinementInstruction, conversationHistory } = body;
+In chat mode only:
+  {"tool":"add_example","name":"filename.js","code":"..."} — add a new example
+  {"tool":"rename_example","id":"...","name":"filename.js"} — rename an example, but ONLY if its current name is "untitled.js"
+
+## Mode: generate
+
+The user clicked Generate. Goal: make existing examples work.
+
+Steps to follow:
+1. Inspect all examples for problems: syntax errors, API shape conflicts between examples (e.g. two examples call the same method with incompatible signatures or different names)
+2. Fix any broken or conflicting examples using optimize_example
+3. Always end with update_library so the library is regenerated
+
+Rules:
+- Do NOT add new examples in generate mode
+- Resolve all conflicts with your best judgment — pick the most consistent option, or prefer the API used by the majority of examples. Never ask the user, never skip a conflict
+- If you resolved a conflict, describe what you changed in the "note" field
+- If there are no problems, just include update_library (the system will detect if anything actually changed)
+- If an example is named "untitled.js", rename it to something descriptive based on its code using rename_example
+
+## Mode: chat
+
+The user sent a message. Decide:
+- Question about their code, library, API design, or JavaScript → {"type":"answer","text":"..."}
+- Request within scope → {"type":"actions","steps":[...]}
+- Request outside scope → {"type":"answer","text":"I can't [what they asked], but I can [relevant things you can do]."}
+
+Scope in chat mode: answer questions, update the library, add/delete/fix examples.
+Out of scope: deploying, publishing, unrelated topics, changing the Forma app itself.
+
+When acting: always end action plans with update_library unless the user explicitly only asked to change examples (no library update needed).
+
+## Output rules
+Return ONLY valid JSON. No markdown fences, no explanation outside the JSON.`;
+
+export function buildChatMessages(body: ChatRequestBody): Anthropic.MessageParam[] {
+  const { instruction, mode, examples, libraryCode, diff } = body;
 
   const examplesBlock = examples
-    .map((ex, i) => `### Example ${i + 1}: ${ex.name} (id: ${ex.id})\n\`\`\`javascript\n${ex.code}\n\`\`\``)
+    .map((ex, i) => {
+      const errorLine = ex.error ? `\nStatus: FAILING — ${ex.error}` : "";
+      return `### Example ${i + 1}: ${ex.name} (id: ${ex.id})${errorLine}\n\`\`\`javascript\n${ex.code}\n\`\`\``;
+    })
     .join("\n\n");
 
-  const historyBlock =
-    conversationHistory.length > 0
-      ? "\n\n## Previous Clarifications\n\n" +
-        conversationHistory.map((t) => `**Q:** ${t.question}\n**A:** ${t.answer}`).join("\n\n")
-      : "";
+  const libraryBlock = libraryCode.trim()
+    ? `\n\n### Current Library Code\n\`\`\`javascript\n${libraryCode}\n\`\`\``
+    : "\n\n### Current Library Code\n(not yet generated)";
 
-  const instructionBlock = refinementInstruction.trim()
-    ? `\n\n## User Instruction\n${refinementInstruction}`
-    : "\n\n## Task\nNo user instruction — check for cross-example API inconsistencies only.";
+  const diffParts: string[] = [];
+  if (diff.added.length) diffParts.push(`Added: ${diff.added.map((e) => e.name).join(", ")}`);
+  if (diff.removed.length) diffParts.push(`Removed: ${diff.removed.map((e) => e.name).join(", ")}`);
+  if (diff.modified.length) diffParts.push(`Modified: ${diff.modified.map((e) => e.name).join(", ")}`);
+  const diffBlock = diffParts.length
+    ? `\n\n### Changes since last generation\n${diffParts.join("\n")}`
+    : "\n\n### Changes since last generation\n(none — examples and library are in sync)";
 
   return [
     {
       role: "user",
-      content:
-        `## Current Examples\n\n${examplesBlock}` +
-        instructionBlock +
-        historyBlock +
-        "\n\n---\nRespond with JSON only:",
+      content: [
+        {
+          type: "text",
+          text: `## Current Examples\n\n${examplesBlock}`,
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          type: "text",
+          text:
+            libraryBlock +
+            diffBlock +
+            `\n\n## Mode: ${mode}` +
+            `\n\n## Instruction\n${instruction}` +
+            "\n\n---\nRespond with JSON only:",
+        },
+      ],
     },
   ];
 }

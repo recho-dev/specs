@@ -8,9 +8,10 @@ import type {
   LibraryState,
   ConsoleLine,
   GenerateRequestBody,
-  SpecRequestBody,
-  SpecResponse,
-  SpecConversationTurn,
+  ChatRequestBody,
+  ChatPlan,
+  ExamplesDiff,
+  FileDiff,
   Version,
   VersionedExample,
   ProjectFile,
@@ -28,6 +29,14 @@ const DEFAULT_EXAMPLE_CODE = `// Write how you want to use the library here
 // chart.render();
 `
 
+const GENERATE_PROMPT = 'Analyze the current examples for problems — syntax errors, conflicting API shapes between examples. Fix any issues. Then regenerate the library to make all examples work.'
+
+export interface ToastState {
+  kind: 'thinking' | 'done'
+  message: string
+  step?: string
+}
+
 interface WorkbenchStore {
   projectPath: string | null
   isProjectLoaded: boolean
@@ -37,21 +46,18 @@ interface WorkbenchStore {
   activeExampleId: string | null
   viewingLibrary: boolean
 
-  specQuestion: string | null
-  specConversationHistory: SpecConversationTurn[]
-  pendingRefinementInstruction: string
-
   versions: Version[]
   activeVersionId: string | null
-
   generationId: number
+
+  lastGeneratedExamples: VersionedExample[]
+  toastState: ToastState | null
+  lastDiff: FileDiff[] | null
 
   exportMeta: ExportMeta | null
   setExportMeta: (meta: ExportMeta) => void
-
-  aiMessage: string | null
-  aiMessageLoading: boolean
-  dismissAiMessage: () => void
+  setToastState: (state: ToastState | null) => void
+  setLastDiff: (diff: FileDiff[] | null) => void
 
   addExample: () => void
   insertExampleAt: (index: number) => void
@@ -81,11 +87,79 @@ interface WorkbenchStore {
   buildProjectFile: () => ProjectFile
   setProjectPath: (path: string) => void
 
-  generate: (refinement?: string) => Promise<void>
-  refine: (instruction: string) => Promise<void>
-  answerSpecQuestion: (answer: string) => Promise<void>
-  _handleSpecResponse: (data: SpecResponse) => Promise<void>
+  chat: (instruction: string, mode: 'generate' | 'chat') => Promise<void>
+  chatFromGenerate: () => Promise<void>
+  _generateLibraryCode: (refinement: string) => Promise<boolean>
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function computeDiff(last: VersionedExample[], current: Example[]): ExamplesDiff {
+  const lastMap = new Map(last.map((e) => [e.id, e]))
+  const currentMap = new Map(current.map((e) => [e.id, e]))
+  return {
+    added: current.filter((e) => !lastMap.has(e.id)).map((e) => ({ id: e.id, name: e.name })),
+    removed: last.filter((e) => !currentMap.has(e.id)).map((e) => ({ id: e.id, name: e.name })),
+    modified: current
+      .filter((e) => {
+        const prev = lastMap.get(e.id)
+        return prev && (prev.code !== e.code || prev.name !== e.name)
+      })
+      .map((e) => ({ id: e.id, name: e.name })),
+  }
+}
+
+function examplesChanged(prior: VersionedExample[], current: VersionedExample[]): boolean {
+  if (prior.length !== current.length) return true
+  const priorMap = new Map(prior.map((e) => [e.id, e]))
+  return current.some((e) => {
+    const prev = priorMap.get(e.id)
+    return !prev || prev.code !== e.code || prev.name !== e.name
+  })
+}
+
+function buildDoneSummary(
+  priorLibraryCode: string,
+  priorExamples: VersionedExample[],
+  currentLibraryCode: string,
+  currentExamples: VersionedExample[]
+): string {
+  const priorMap = new Map(priorExamples.map((e) => [e.id, e]))
+  const currentMap = new Map(currentExamples.map((e) => [e.id, e]))
+
+  const added = currentExamples.filter((e) => !priorMap.has(e.id))
+  const removed = priorExamples.filter((e) => !currentMap.has(e.id))
+  const fixed = currentExamples.filter((e) => {
+    const prev = priorMap.get(e.id)
+    return prev && prev.code !== e.code
+  })
+  const libraryChanged = currentLibraryCode !== priorLibraryCode
+
+  const parts: string[] = []
+  if (added.length) parts.push(`Added ${added.map((e) => e.name).join(', ')}`)
+  if (removed.length) parts.push(`Removed ${removed.map((e) => e.name).join(', ')}`)
+  if (fixed.length) parts.push(`Fixed ${fixed.map((e) => e.name).join(', ')}`)
+  if (libraryChanged) parts.push('Updated library')
+
+  return parts.length > 0 ? parts.join(', ') : 'No changes were necessary.'
+}
+
+// ── Selector ──────────────────────────────────────────────────────────────────
+
+export function selectHasChangedSinceLastGeneration(state: WorkbenchStore): boolean {
+  if (!state.library.code) return true
+  const last = state.lastGeneratedExamples
+  const current = state.examples
+  if (last.length === 0 && current.length > 0) return true
+  if (last.length !== current.length) return true
+  const lastMap = new Map(last.map((e) => [e.id, e]))
+  return current.some((e) => {
+    const prev = lastMap.get(e.id)
+    return !prev || prev.code !== e.code || prev.name !== e.name
+  })
+}
+
+// ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useWorkbenchStore = create<WorkbenchStore>()(
   immer((set, get) => ({
@@ -100,22 +174,20 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     },
     activeExampleId: null,
     viewingLibrary: false,
-    specQuestion: null,
-    specConversationHistory: [],
-    pendingRefinementInstruction: '',
     generationId: 0,
     exportMeta: null,
     versions: [],
     activeVersionId: null,
+    lastGeneratedExamples: [],
+    toastState: null,
+    lastDiff: null,
 
-    aiMessage: null,
-    aiMessageLoading: false,
+    setToastState: (state) => {
+      set((s) => { s.toastState = state })
+    },
 
-    dismissAiMessage: () => {
-      set((s) => {
-        s.aiMessage = null
-        s.aiMessageLoading = false
-      })
+    setLastDiff: (diff) => {
+      set((s) => { s.lastDiff = diff })
     },
 
     loadProject: (project: LoadedProject) => {
@@ -131,9 +203,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.library.isGenerating = false
         s.library.generationError = null
         s.library.streamBuffer = ''
-        s.specQuestion = null
-        s.specConversationHistory = []
-        s.pendingRefinementInstruction = ''
+        s.lastGeneratedExamples = file.examples
+        s.toastState = null
+        s.lastDiff = null
         s.examples = file.examples.map((e) => ({
           id: e.id,
           name: e.name,
@@ -171,7 +243,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((state) => {
         state.examples.push({
           id,
-          name: `Example ${state.examples.length + 1}`,
+          name: 'untitled.js',
           code: DEFAULT_EXAMPLE_CODE,
           status: 'idle',
           error: null,
@@ -336,9 +408,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
       await ipc.projectSave(get().buildProjectFile())
 
-      set((s) => { s.aiMessageLoading = true })
-
-      // Async: get a richer description and update
+      // Async: generate a richer version label (fire and forget — does not affect toast)
       ipc.invokeSummarize({
         refinementPrompt,
         previousLibraryCode: priorLibraryCode,
@@ -346,19 +416,13 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         previousExamples: priorExamples,
         currentExamples,
       })
-        .then(({ description, aiMessage }) => {
+        .then(({ description }) => {
           if (description) {
             get()._updateVersionDescription(versionId, description)
             ipc.projectSave(get().buildProjectFile()).catch(() => {})
           }
-          set((s) => {
-            s.aiMessage = aiMessage || null
-            s.aiMessageLoading = false
-          })
         })
-        .catch(() => {
-          set((s) => { s.aiMessageLoading = false })
-        })
+        .catch(() => {})
     },
 
     restoreVersion: async (id) => {
@@ -384,9 +448,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.library.streamBuffer = ''
         s.viewingLibrary = true
         s.activeExampleId = null
-        s.specQuestion = null
-        s.specConversationHistory = []
-        s.pendingRefinementInstruction = ''
+        s.toastState = null
+        s.lastGeneratedExamples = version.examples
         s.examples = version.examples.map((e) => ({
           id: e.id,
           name: e.name,
@@ -403,103 +466,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       await ipc.projectSave(get().buildProjectFile())
     },
 
-    refine: async (instruction) => {
+    // Internal: streams library code from the generation model. Returns true on success.
+    _generateLibraryCode: async (refinement: string): Promise<boolean> => {
       const state = get()
-      if (state.examples.length === 0) return
-
-      set((s) => {
-        s.library.isGenerating = true
-        s.library.generationError = null
-        s.specConversationHistory = []
-        s.pendingRefinementInstruction = instruction
-        s.specQuestion = null
-      })
-
-      try {
-        const body: SpecRequestBody = {
-          examples: state.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
-          refinementInstruction: instruction,
-          conversationHistory: [],
-        }
-        const data = await ipc.invokeSpec(body)
-        await get()._handleSpecResponse(data)
-      } catch (err) {
-        get().setGenerationError(err instanceof Error ? err.message : 'Spec agent failed')
-      }
-    },
-
-    answerSpecQuestion: async (answer) => {
-      const state = get()
-      const history: SpecConversationTurn[] = [
-        ...state.specConversationHistory,
-        { question: state.specQuestion!, answer },
-      ]
-
-      set((s) => {
-        s.specConversationHistory = history
-        s.specQuestion = null
-        s.library.isGenerating = true
-        s.library.generationError = null
-      })
-
-      try {
-        const body: SpecRequestBody = {
-          examples: state.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
-          refinementInstruction: state.pendingRefinementInstruction,
-          conversationHistory: history,
-        }
-        const data = await ipc.invokeSpec(body)
-        await get()._handleSpecResponse(data)
-      } catch (err) {
-        get().setGenerationError(err instanceof Error ? err.message : 'Spec agent failed')
-      }
-    },
-
-    _handleSpecResponse: async (data) => {
-      if (data.type === 'question') {
-        set((s) => {
-          s.specQuestion = data.question
-          s.library.isGenerating = false
-        })
-        return
-      }
-
-      const pendingInstruction = get().pendingRefinementInstruction
-
-      if (data.type === 'update') {
-        set((s) => {
-          for (const updated of data.examples) {
-            const ex = s.examples.find((e) => e.id === updated.id)
-            if (ex) {
-              ex.name = updated.name
-              ex.code = updated.code
-            }
-          }
-          s.specQuestion = null
-          s.specConversationHistory = []
-          s.pendingRefinementInstruction = ''
-        })
-      } else {
-        set((s) => {
-          s.specQuestion = null
-          s.specConversationHistory = []
-          s.pendingRefinementInstruction = ''
-        })
-      }
-
-      await get().generate(pendingInstruction)
-    },
-
-    generate: async (refinement = '') => {
-      const state = get()
-      if (state.examples.length === 0) return
-
-      const priorLibraryCode = state.library.code
-      const priorExamples: VersionedExample[] = state.examples.map((e) => ({
-        id: e.id,
-        name: e.name,
-        code: e.code,
-      }))
 
       const failedExamples = state.examples
         .filter((e) => e.status === 'fail' && e.error)
@@ -517,8 +486,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.library.generationError = null
         s.library.streamBuffer = ''
         s.viewingLibrary = true
-        s.aiMessage = null
-        s.aiMessageLoading = false
         s.examples.forEach((e) => {
           e.status = 'running'
           e.consoleOutput = []
@@ -526,7 +493,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         })
       })
 
-      await new Promise<void>((resolve) => {
+      return new Promise<boolean>((resolve) => {
         ipc.offGenerateListeners()
 
         ipc.onGenerateChunk((chunk) => {
@@ -539,33 +506,203 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
           if (buffer.includes('__ERROR__:')) {
             const errMsg = buffer.split('__ERROR__:')[1]?.trim() ?? 'Generation failed'
-            get().setGenerationError(errMsg)
-            resolve()
+            set((s) => {
+              s.library.generationError = errMsg
+              s.library.streamBuffer = ''
+              s.examples.forEach((e) => { if (e.status === 'running') e.status = 'idle' })
+            })
+            resolve(false)
             return
           }
 
           const libraryCode = extractCodeFromBuffer(buffer)
           get().setLibraryCode(libraryCode)
-          await get().saveVersion(refinement, priorLibraryCode, priorExamples)
-          set((s) => {
-            s.library.isGenerating = false
-            s.generationId += 1
-          })
-          resolve()
+          set((s) => { s.generationId += 1 })
+          resolve(true)
         })
 
         ipc.onGenerateError((err) => {
           ipc.offGenerateListeners()
-          get().setGenerationError(err)
-          resolve()
+          set((s) => {
+            s.library.generationError = err
+            s.library.streamBuffer = ''
+            s.examples.forEach((e) => { if (e.status === 'running') e.status = 'idle' })
+          })
+          resolve(false)
         })
 
         ipc.generateStart(body).catch((err) => {
           ipc.offGenerateListeners()
-          get().setGenerationError(err instanceof Error ? err.message : 'Unknown error')
-          resolve()
+          set((s) => {
+            s.library.generationError = err instanceof Error ? err.message : 'Unknown error'
+            s.library.streamBuffer = ''
+          })
+          resolve(false)
         })
       })
+    },
+
+    // Sugar: called by the Generate button with a hidden prompt
+    chatFromGenerate: async () => {
+      return get().chat(GENERATE_PROMPT, 'generate')
+    },
+
+    chat: async (instruction: string, mode: 'generate' | 'chat') => {
+      const state = get()
+
+      if (state.examples.length === 0) {
+        set((s) => {
+          s.toastState = { kind: 'done', message: 'Add at least one example before generating.' }
+        })
+        return
+      }
+
+      const priorLibraryCode = state.library.code
+      const priorExamples: VersionedExample[] = state.examples.map((e) => ({
+        id: e.id, name: e.name, code: e.code,
+      }))
+
+      // No-op check: generate mode with nothing changed and library exists
+      const diff = computeDiff(state.lastGeneratedExamples, state.examples)
+      const nothingChanged = diff.added.length === 0 && diff.removed.length === 0 && diff.modified.length === 0
+      if (mode === 'generate' && nothingChanged && state.library.code) {
+        set((s) => {
+          s.toastState = { kind: 'done', message: 'Nothing has changed since the last generation — the library is already up to date.' }
+        })
+        return
+      }
+
+      const toastMessage = mode === 'generate' ? 'Generating…' : `"${instruction}"`
+
+      set((s) => {
+        s.library.generationError = null
+        s.lastDiff = null
+        s.toastState = { kind: 'thinking', message: toastMessage, step: 'Planning…' }
+      })
+
+      try {
+        const body: ChatRequestBody = {
+          instruction,
+          mode,
+          examples: state.examples.map((e) => ({
+            id: e.id,
+            name: e.name,
+            code: e.code,
+            error: e.status === 'fail' ? e.error : null,
+          })),
+          libraryCode: state.library.code,
+          diff,
+        }
+
+        const plan: ChatPlan = await ipc.invokeChat(body)
+
+        if (plan.type === 'answer') {
+          set((s) => {
+            s.library.isGenerating = false
+            s.toastState = { kind: 'done', message: plan.text }
+          })
+          return
+        }
+
+        // Execute action steps in sequence
+        for (const step of plan.steps) {
+          if (step.tool === 'optimize_example') {
+            const name = get().examples.find((e) => e.id === step.id)?.name ?? 'example'
+            set((s) => {
+              s.toastState = { kind: 'thinking', message: toastMessage, step: `Fixing ${name}…` }
+            })
+            get().setExampleCode(step.id, step.code)
+
+          } else if (step.tool === 'delete_example') {
+            const name = get().examples.find((e) => e.id === step.id)?.name ?? 'example'
+            set((s) => {
+              s.toastState = { kind: 'thinking', message: toastMessage, step: `Removing ${name}…` }
+            })
+            get().deleteExample(step.id)
+
+          } else if (step.tool === 'add_example') {
+            set((s) => {
+              s.toastState = { kind: 'thinking', message: toastMessage, step: `Adding ${step.name}…` }
+              const id = nanoid()
+              s.examples.push({
+                id,
+                name: step.name,
+                code: step.code,
+                status: 'idle',
+                error: null,
+                consoleOutput: [],
+              })
+              s.activeExampleId = id
+              s.viewingLibrary = false
+            })
+
+          } else if (step.tool === 'rename_example') {
+            const ex = get().examples.find((e) => e.id === step.id)
+            if (ex && ex.name === 'untitled.js') {
+              get().setExampleName(step.id, step.name)
+            }
+
+          } else if (step.tool === 'update_library') {
+            set((s) => {
+              s.toastState = { kind: 'thinking', message: toastMessage, step: 'Generating library…' }
+            })
+            const ok = await get()._generateLibraryCode(instruction)
+            if (!ok) {
+              throw new Error(get().library.generationError ?? 'Library generation failed')
+            }
+          }
+        }
+
+        // Determine what actually changed
+        const finalExamples: VersionedExample[] = get().examples.map((e) => ({
+          id: e.id, name: e.name, code: e.code,
+        }))
+        const libraryChanged = get().library.code !== priorLibraryCode
+        const samplesChanged = examplesChanged(priorExamples, finalExamples)
+
+        if (libraryChanged || samplesChanged) {
+          await get().saveVersion(instruction, priorLibraryCode, priorExamples)
+          set((s) => { s.lastGeneratedExamples = finalExamples })
+        }
+
+        // Build done summary: prefer AI note for conflict explanations, otherwise use diff
+        const summary = plan.note ?? buildDoneSummary(priorLibraryCode, priorExamples, get().library.code, finalExamples)
+
+        // Compute per-file diffs for the diff modal
+        const displayName = (name: string) => /\.\w+$/.test(name) ? name : `${name}.js`
+        const fileDiffs: FileDiff[] = []
+        if (get().library.code !== priorLibraryCode) {
+          fileDiffs.push({ name: 'library.js', before: priorLibraryCode, after: get().library.code, kind: 'modified' })
+        }
+        const priorExMap = new Map(priorExamples.map((e) => [e.id, e]))
+        for (const e of finalExamples) {
+          const prev = priorExMap.get(e.id)
+          if (!prev) {
+            fileDiffs.push({ name: displayName(e.name), before: '', after: e.code, kind: 'added' })
+          } else if (prev.code !== e.code || prev.name !== e.name) {
+            fileDiffs.push({ name: displayName(e.name), before: prev.code, after: e.code, kind: 'modified' })
+          }
+        }
+        for (const e of priorExamples) {
+          if (!finalExamples.find((fe) => fe.id === e.id)) {
+            fileDiffs.push({ name: displayName(e.name), before: e.code, after: '', kind: 'removed' })
+          }
+        }
+
+        set((s) => {
+          s.library.isGenerating = false
+          s.lastDiff = fileDiffs.length > 0 ? fileDiffs : null
+          s.toastState = { kind: 'done', message: summary }
+        })
+
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Something went wrong'
+        set((s) => {
+          s.library.isGenerating = false
+          s.library.generationError = msg
+          s.toastState = { kind: 'done', message: `Error: ${msg}` }
+        })
+      }
     },
   }))
 )
