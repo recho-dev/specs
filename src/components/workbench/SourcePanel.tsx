@@ -9,6 +9,7 @@ export default function SourcePanel({
   showVerticalBar,
   hasSource,
   sourceValue,
+  isStreaming,
   onToggleSource,
   onResize,
 }: {
@@ -17,6 +18,7 @@ export default function SourcePanel({
   showVerticalBar: boolean;
   hasSource: boolean;
   sourceValue: string;
+  isStreaming: boolean;
   onToggleSource: () => void;
   onResize: () => void;
 }) {
@@ -67,7 +69,7 @@ export default function SourcePanel({
           </div>
           <div className="flex-1 min-h-0">
             {hasSource ? (
-              <CodeEditor value={sourceValue} readOnly editorBackground="#F5F4F2" />
+              <CodeEditor value={sourceValue} readOnly isStreaming={isStreaming} editorBackground="#F5F4F2" />
             ) : (
               <div className="text-sm px-5 pt-5" style={{ color: "#ACA89F" }}>
                 Generated library source will appear here
