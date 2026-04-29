@@ -296,6 +296,7 @@ export default function Workbench() {
           showVerticalBar={showVerticalBar}
           hasSource={hasSource}
           sourceValue={sourceValue}
+          isStreaming={isGenerating}
           onToggleSource={handleToggleSource}
           onResize={handleSourceResize}
         />

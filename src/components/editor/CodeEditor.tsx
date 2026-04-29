@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -30,6 +30,8 @@ interface Props {
   editorBackground?: string
   /** Grow to fit content; disables vertical scroll. */
   autoHeight?: boolean
+  /** When true, scrolls to the last line whenever value changes. */
+  isStreaming?: boolean
 }
 
 export default function CodeEditor({
@@ -39,9 +41,11 @@ export default function CodeEditor({
   language = 'javascript',
   editorBackground,
   autoHeight = false,
+  isStreaming = false,
 }: Props) {
   const surfaceColor = editorBackground ?? '#ffffff'
   const [contentHeight, setContentHeight] = useState(100)
+  const editorRef = useRef<EditorInstance | null>(null)
 
   const beforeMount = useMemo(
     () => (monaco: MonacoInstance) => {
@@ -52,6 +56,7 @@ export default function CodeEditor({
 
   const onMount = useMemo(
     () => (editor: EditorInstance, monaco: MonacoInstance) => {
+      editorRef.current = editor
       defineChromeTheme(monaco)
       monaco.editor.setTheme(THEME_CHROME)
 
@@ -65,6 +70,12 @@ export default function CodeEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
+
+  useEffect(() => {
+    if (!isStreaming || !editorRef.current) return
+    const lineCount = editorRef.current.getModel()?.getLineCount() ?? 1
+    editorRef.current.revealLine(lineCount)
+  }, [value, isStreaming])
 
   const height = autoHeight ? contentHeight : '100%'
 
