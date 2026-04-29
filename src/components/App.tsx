@@ -48,15 +48,16 @@ export default function App() {
     if (project) loadProject(project)
   }
 
-  async function handleExport(meta: ExportMeta) {
+  async function handleExport(meta: ExportMeta, previewFiles?: import('@/types').PreviewFile[], readmeContent?: string) {
     setExportMeta(meta)
-    // Persist meta to project file
     await ipc.projectSave(buildProjectFile()).catch(() => {})
 
     const result = await ipc.invokeExport({
       meta,
       libraryCode,
       examples: examples.map((e) => ({ name: e.name, code: e.code })),
+      previewFiles,
+      readmeContent,
     })
     if (result.ok) return { ok: true as const, exportPath: (result as { ok: true; exportPath: string }).exportPath }
     return { ok: false as const, error: (result as { ok: false; error: string }).error }
@@ -138,6 +139,8 @@ export default function App() {
         <ExportModal
           defaultName={defaultPackageName}
           initialMeta={exportMeta}
+          libraryCode={libraryCode}
+          examples={examples.map((e) => ({ name: e.name, code: e.code }))}
           onClose={() => setExportOpen(false)}
           onExport={handleExport}
         />

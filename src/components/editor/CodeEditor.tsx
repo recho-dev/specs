@@ -28,6 +28,7 @@ interface Props {
   readOnly?: boolean
   language?: string
   editorBackground?: string
+  fontSize?: number
   /** Grow to fit content; disables vertical scroll. */
   autoHeight?: boolean
   /** When true, scrolls to the last line whenever value changes. */
@@ -40,6 +41,7 @@ export default function CodeEditor({
   readOnly = false,
   language = 'javascript',
   editorBackground,
+  fontSize = 14,
   autoHeight = false,
   isStreaming = false,
 }: Props) {
@@ -101,8 +103,8 @@ export default function CodeEditor({
           theme={THEME_CHROME}
           options={{
             readOnly,
-            fontSize: 14,
-            lineHeight: 22,
+            fontSize,
+            lineHeight: Math.round(fontSize * 1.6),
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             wordWrap: 'off',

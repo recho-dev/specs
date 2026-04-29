@@ -1,4 +1,4 @@
-import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult } from '@/types'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest } from '@/types'
 
 const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI
 
@@ -19,6 +19,8 @@ interface ElectronAPI {
   onMenu: (event: string, cb: () => void) => void
   offMenu: (event: string) => void
   invokeExport: (body: ExportRequestBody) => Promise<ExportResult>
+  previewSync: (body: PreviewSyncRequest) => Promise<PreviewFile[]>
+  generateReadme: (body: GenerateReadmeRequest) => Promise<string>
   openPath: (path: string) => Promise<void>
 }
 
@@ -39,5 +41,7 @@ export const ipc = {
   onMenu: (event: string, cb: () => void) => api().onMenu(event, cb),
   offMenu: (event: string) => api().offMenu(event),
   invokeExport: (body: ExportRequestBody) => api().invokeExport(body),
+  previewSync: (body: PreviewSyncRequest) => api().previewSync(body),
+  generateReadme: (body: GenerateReadmeRequest) => api().generateReadme(body),
   openPath: (path: string) => api().openPath(path),
 }

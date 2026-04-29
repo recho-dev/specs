@@ -74,6 +74,8 @@ export interface ExportRequestBody {
   meta: ExportMeta
   libraryCode: string
   examples: { name: string; code: string }[]
+  previewFiles?: PreviewFile[]
+  readmeContent?: string
 }
 
 export type ExportResult =
@@ -134,4 +136,20 @@ export interface FileDiff {
   before: string
   after: string
   kind: 'added' | 'removed' | 'modified'
+}
+
+export interface PreviewFile {
+  path: string
+  content: string
+}
+
+export interface PreviewSyncRequest {
+  meta: ExportMeta
+  libraryCode: string
+  examples: { name: string; code: string }[]
+}
+
+export interface GenerateReadmeRequest {
+  meta: ExportMeta
+  examples: { name: string; code: string }[]
 }
