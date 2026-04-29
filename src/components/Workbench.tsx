@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Trash2 } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
-import { useWorkbenchStore } from "@/store/useWorkbenchStore";
+import { useWorkbenchStore, selectHasChangedSinceLastGeneration } from "@/store/useWorkbenchStore";
 import { ipc } from "@/lib/ipc";
 import { readPanelLayout, savePanelLayout } from "@/lib/panelLayout";
 import PreviewPanel from "./preview/PreviewPanel";
 import AIPanel, { type AIPanelMode, type ApiKeyStatus } from "./AIPanel";
+import AIToast from "./workbench/AIToast";
+import DiffModal from "./workbench/DiffModal";
 import Footer, { type FooterMode } from "./workbench/Footer";
 import SourcePanel from "./workbench/SourcePanel";
 import ExamplesList from "./workbench/ExamplesList";
@@ -24,21 +25,20 @@ export default function Workbench() {
   const libraryCode = useWorkbenchStore((s) => s.library.code);
   const streamBuffer = useWorkbenchStore((s) => s.library.streamBuffer);
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
+  const toastState = useWorkbenchStore((s) => s.toastState);
+  const setToastState = useWorkbenchStore((s) => s.setToastState);
+  const lastDiff = useWorkbenchStore((s) => s.lastDiff);
+  const hasChangedSinceLastGeneration = useWorkbenchStore(selectHasChangedSinceLastGeneration);
 
-  const specQuestion = useWorkbenchStore((s) => s.specQuestion);
-  const aiMessage = useWorkbenchStore((s) => s.aiMessage);
-  const aiMessageLoading = useWorkbenchStore((s) => s.aiMessageLoading);
   const addExample = useWorkbenchStore((s) => s.addExample);
   const insertExampleAt = useWorkbenchStore((s) => s.insertExampleAt);
   const deleteExample = useWorkbenchStore((s) => s.deleteExample);
   const setActiveExample = useWorkbenchStore((s) => s.setActiveExample);
   const setExampleCode = useWorkbenchStore((s) => s.setExampleCode);
   const setExampleName = useWorkbenchStore((s) => s.setExampleName);
-  const generate = useWorkbenchStore((s) => s.generate);
-  const refine = useWorkbenchStore((s) => s.refine);
-  const answerSpecQuestion = useWorkbenchStore((s) => s.answerSpecQuestion);
   const reorderExamples = useWorkbenchStore((s) => s.reorderExamples);
-  const dismissAiMessage = useWorkbenchStore((s) => s.dismissAiMessage);
+  const chatFromGenerate = useWorkbenchStore((s) => s.chatFromGenerate);
+  const chat = useWorkbenchStore((s) => s.chat);
 
   const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -49,7 +49,6 @@ export default function Workbench() {
 
   useEffect(() => {
     if (!renamingExampleId) return;
-    // Focus/select after the input mounts
     const t = setTimeout(() => {
       renameInputRef.current?.focus();
       renameInputRef.current?.select();
@@ -58,7 +57,6 @@ export default function Workbench() {
   }, [renamingExampleId]);
 
   useEffect(() => {
-    // If selection changes away, stop renaming
     if (renamingExampleId && activeExampleId !== renamingExampleId) {
       setRenamingExampleId(null);
       setRenameDraft("");
@@ -67,7 +65,6 @@ export default function Workbench() {
 
   useEffect(() => {
     if (!confirmDeleteId) return;
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setConfirmDeleteId(null);
     };
@@ -78,7 +75,6 @@ export default function Workbench() {
         setConfirmDeleteId(null);
       }
     };
-
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mousedown", onMouseDown);
     return () => {
@@ -90,6 +86,7 @@ export default function Workbench() {
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<FooterMode>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
   const sourcePanelRef   = useRef<PanelImperativeHandle | null>(null);
   const examplesPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -105,14 +102,10 @@ export default function Workbench() {
   const [apiKeyRequested, setApiKeyRequested] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
-  const [apiKeySavedMsg, setApiKeySavedMsg] = useState<string | null>(null);
 
-  // Derive panel mode with priority: api-key > spec-question > message
-  const panelMode: AIPanelMode =
-    apiKeyRequested ? 'api-key' :
-    specQuestion ? 'spec-question' :
-    (aiMessageLoading || aiMessage || apiKeySavedMsg) ? 'message' :
-    null;
+  const panelMode: AIPanelMode = apiKeyRequested ? 'api-key' : null;
+  const canGenerate = examples.length > 0 && hasChangedSinceLastGeneration;
+  const isProcessing = isGenerating || toastState?.kind === 'thinking';
 
   const sourceValue = isGenerating ? streamBuffer : libraryCode || EMPTY_SOURCE_PLACEHOLDER;
   const hasSource = !!(libraryCode || isGenerating);
@@ -120,13 +113,14 @@ export default function Workbench() {
   async function handleGenerateClick() {
     const hasKey = await ipc.hasApiKey();
     if (!hasKey) { setApiKeyRequested(true); return; }
-    generate().catch(() => {});
+    chatFromGenerate().catch(() => {});
   }
 
   function handleAskAiClick() {
     if (footerMode === 'ask') {
       setFooterMode(null);
       setAiInput('');
+      setToastState(null);
       return;
     }
     setFooterMode('ask');
@@ -139,8 +133,7 @@ export default function Workbench() {
     const hasKey = await ipc.hasApiKey();
     if (!hasKey) { setApiKeyRequested(true); return; }
     setAiInput('');
-    setFooterMode(null);
-    refine(trimmed).catch(() => {});
+    chat(trimmed, 'chat').catch(() => {});
   }
 
   useEffect(() => {
@@ -151,7 +144,6 @@ export default function Workbench() {
 
   useEffect(() => () => cancelAnimation(), []);
 
-  // Restore saved panel layout when a project is opened
   useEffect(() => {
     if (!projectPath) return;
     const layout = readPanelLayout(projectPath);
@@ -181,7 +173,6 @@ export default function Workbench() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       if (collapsed) {
-        // Don't overwrite sourceSize — only update the other two
         savePanelLayout(projectPath, { examplesSize, previewSize });
       } else {
         const sourceSize = sourcePanelRef.current?.getSize().asPercentage;
@@ -207,13 +198,7 @@ export default function Workbench() {
     setApiKeyRequested(false);
     setApiKeyStatus(null);
     setIsSaving(false);
-    setApiKeySavedMsg('Key saved successfully! Click **Generate** to get started.');
-  }
-
-  function handleDismissPanel() {
-    setApiKeyRequested(false);
-    setApiKeySavedMsg(null);
-    dismissAiMessage();
+    setToastState({ kind: 'done', message: 'API key saved. Click Generate to get started.' });
   }
 
   const ANIM_MS = 260;
@@ -238,13 +223,10 @@ export default function Workbench() {
     const exSize = examplesPanelRef.current?.getSize().asPercentage ?? 40;
     const prSize = previewPanelRef.current?.getSize().asPercentage ?? 30;
     const half = sourceSize / 2;
-    const newExSize = exSize + half;
-    const newPrSize = prSize + half;
     sourcePanelRef.current?.collapse();
-    examplesPanelRef.current?.resize(`${newExSize}`);
-    previewPanelRef.current?.resize(`${newPrSize}`);
-    // Save the post-collapse sizes so restore can apply them correctly
-    if (projectPath) savePanelLayout(projectPath, { examplesSize: newExSize, previewSize: newPrSize });
+    examplesPanelRef.current?.resize(`${exSize + half}`);
+    previewPanelRef.current?.resize(`${prSize + half}`);
+    if (projectPath) savePanelLayout(projectPath, { examplesSize: exSize + half, previewSize: prSize + half });
   }
 
   function handleExpandWithEqualDistribution() {
@@ -323,7 +305,7 @@ export default function Workbench() {
         </PanelResizeHandle>
 
         {/* ── EXAMPLES ── */}
-        <Panel panelRef={examplesPanelRef} defaultSize={40} minSize={20} onResize={saveHorizontalSizes} className="flex flex-col overflow-hidden">
+        <Panel panelRef={examplesPanelRef} defaultSize={40} minSize={20} onResize={saveHorizontalSizes} className="flex flex-col overflow-hidden relative">
           <div
             className="flex items-center justify-between shrink-0 px-5"
             style={{ height: 40, background: "#ECEAE6", borderBottom: "1px solid #DDD9D2" }}
@@ -378,25 +360,29 @@ export default function Workbench() {
             displayTitle={exampleDisplayTitle}
           />
 
-          {/* AI Panel */}
+          {/* API key panel (only shown when key is missing) */}
           <AIPanel
             mode={panelMode}
-            specQuestion={specQuestion}
-            aiMessage={apiKeySavedMsg ?? aiMessage}
-            aiMessageLoading={aiMessageLoading}
             apiKeyStatus={apiKeyStatus}
             isSaving={isSaving}
-            onDismiss={handleDismissPanel}
-            onAnswerSpec={(answer) => answerSpecQuestion(answer).catch(() => {})}
             onSaveApiKey={handleSaveApiKey}
           />
 
-          {/* Footer: generate + ask AI */}
+          {/* Floating toast — positioned above footer */}
+          <AIToast
+            toastState={toastState}
+            hasDiff={!!lastDiff && lastDiff.length > 0}
+            onDismiss={() => setToastState(null)}
+            onShowDiff={() => setDiffModalOpen(true)}
+          />
+
           <Footer
             aiInput={aiInput}
             footerMode={footerMode}
             askInputRef={askInputRef}
             isGenerating={isGenerating}
+            isProcessing={isProcessing}
+            canGenerate={canGenerate}
             onAiInputChange={setAiInput}
             onSendAsk={handleSendAsk}
             onToggleAsk={handleAskAiClick}
@@ -416,6 +402,9 @@ export default function Workbench() {
       </PanelGroup>
 
       <VersionsModal open={versionsOpen} onClose={() => setVersionsOpen(false)} />
+      {diffModalOpen && lastDiff && lastDiff.length > 0 && (
+        <DiffModal diffs={lastDiff} onClose={() => setDiffModalOpen(false)} />
+      )}
     </div>
   );
 }

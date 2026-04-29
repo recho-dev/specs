@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import Anthropic from '@anthropic-ai/sdk'
-import { SYSTEM_PROMPT, buildGenerationMessages, SPEC_SYSTEM_PROMPT, buildSpecMessages } from '@/lib/prompts'
-import type { GenerateRequestBody, SpecRequestBody, SpecResponse, SummarizeRequestBody, VersionedExample } from '@/types'
+import { SYSTEM_PROMPT, buildGenerationMessages, CHAT_SYSTEM_PROMPT, buildChatMessages } from '@/lib/prompts'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, SummarizeRequestBody, VersionedExample } from '@/types'
 import { readApiKey } from './keystore'
 
 function buildDiffSummary(body: SummarizeRequestBody): string {
@@ -62,25 +62,28 @@ ipcMain.handle('claude:generate', async (event, body: GenerateRequestBody) => {
   }
 })
 
-ipcMain.handle('claude:spec', async (_e, body: SpecRequestBody): Promise<SpecResponse> => {
+ipcMain.handle('claude:chat', async (_e, body: ChatRequestBody): Promise<ChatPlan> => {
   const apiKey = await readApiKey()
   if (!apiKey) {
-    return { type: 'passthrough' }
+    return { type: 'answer', text: 'API key not configured. Please add your Anthropic API key in Settings.' }
   }
 
   const client = new Anthropic({ apiKey })
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    system: SPEC_SYSTEM_PROMPT,
-    messages: buildSpecMessages(body),
-  })
 
-  const text = response.content[0]?.type === 'text' ? response.content[0].text.trim() : ''
   try {
-    return JSON.parse(text) as SpecResponse
-  } catch {
-    return { type: 'update', examples: body.examples }
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: CHAT_SYSTEM_PROMPT,
+      messages: buildChatMessages(body),
+    })
+
+    const text = response.content[0]?.type === 'text' ? response.content[0].text.trim() : ''
+    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+    return JSON.parse(cleaned) as ChatPlan
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return { type: 'answer', text: `Something went wrong: ${msg}` }
   }
 })
 
@@ -95,7 +98,7 @@ ipcMain.handle('claude:summarize', async (_e, body: SummarizeRequestBody): Promi
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 256,
     system:
-      'You summarize what was accomplished in a code generation step. Respond with two parts separated by "|||": first, a short version label (under 8 words, no punctuation at end, e.g. "Initial bar chart generation"); second, 2-3 sentences describing what was built or changed and why it matters, written directly to the developer. Be specific and concrete.',
+      'You summarize what changed in a Forma session. Respond with two parts separated by "|||": first, a short version label (under 8 words, no punctuation at end, e.g. "Added animation example, updated library"); second, 2-3 sentences describing what changed — mention both library updates AND example additions, removals, or fixes if applicable, written directly to the developer. Be specific and concrete.',
     messages: [{ role: 'user', content: context }],
   })
 

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { GenerateRequestBody, SpecRequestBody, SpecResponse, LoadedProject, ProjectFile, ExportRequestBody, ExportResult } from '../../src/types'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, ExportRequestBody, ExportResult, SummarizeRequestBody } from '../../src/types'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Claude: streaming generation
@@ -16,10 +16,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('claude:generate:error')
   },
 
-  // Claude: non-streaming
-  invokeSpec: (body: SpecRequestBody): Promise<SpecResponse> =>
-    ipcRenderer.invoke('claude:spec', body),
-  invokeSummarize: (body: unknown): Promise<{ description: string; aiMessage: string }> =>
+  // Claude: chat agent (single-turn structured plan)
+  invokeChat: (body: ChatRequestBody): Promise<ChatPlan> =>
+    ipcRenderer.invoke('claude:chat', body),
+
+  // Claude: summarize (for version descriptions)
+  invokeSummarize: (body: SummarizeRequestBody): Promise<{ description: string; aiMessage: string }> =>
     ipcRenderer.invoke('claude:summarize', body),
 
   // Project

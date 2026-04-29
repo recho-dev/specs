@@ -8,6 +8,8 @@ export default function Footer({
   footerMode,
   askInputRef,
   isGenerating,
+  isProcessing,
+  canGenerate,
   onAiInputChange,
   onSendAsk,
   onToggleAsk,
@@ -18,12 +20,21 @@ export default function Footer({
   footerMode: FooterMode;
   askInputRef: RefObject<HTMLInputElement | null>;
   isGenerating: boolean;
+  isProcessing: boolean;
+  canGenerate: boolean;
   onAiInputChange: (value: string) => void;
   onSendAsk: () => void;
   onToggleAsk: () => void;
   onOpenVersions: () => void;
   onGenerate: () => void;
 }) {
+  const generateDisabled = isProcessing || !canGenerate;
+  const generateBg = isGenerating
+    ? "#8A7FD0"
+    : !canGenerate || isProcessing
+    ? "#C4C0D8"
+    : "#5B47D0";
+
   return (
     <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid #DDD9D2", background: "#ECEAE6" }}>
       <div className="flex flex-col gap-2">
@@ -86,17 +97,18 @@ export default function Footer({
           <button
             type="button"
             onClick={onGenerate}
-            disabled={isGenerating || footerMode === "ask"}
+            disabled={generateDisabled}
+            title={!canGenerate && !isProcessing ? "No changes since last generation" : undefined}
             style={{
               flex: 1,
               height: 34,
               borderRadius: 6,
               border: "none",
-              background: isGenerating ? "#8A7FD0" : footerMode === "ask" ? "#C4C0D8" : "#5B47D0",
+              background: generateBg,
               color: "#fff",
               fontSize: "13px",
               fontWeight: 600,
-              cursor: isGenerating || footerMode === "ask" ? "default" : "pointer",
+              cursor: generateDisabled ? "default" : "pointer",
               letterSpacing: "0.02em",
               display: "flex",
               alignItems: "center",
@@ -111,7 +123,7 @@ export default function Footer({
           <button
             type="button"
             onClick={onToggleAsk}
-            disabled={isGenerating}
+            disabled={isProcessing}
             title="Chat"
             style={{
               width: 34,
@@ -120,14 +132,14 @@ export default function Footer({
               border: "1px solid #CCC8C0",
               background: footerMode === "ask" ? "#EAE7F5" : "#FAF9F7",
               color: footerMode === "ask" ? "#5B47D0" : "#8A8780",
-              cursor: isGenerating ? "default" : "pointer",
+              cursor: isProcessing ? "default" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
             onMouseEnter={(e) => {
-              if (isGenerating) return;
+              if (isProcessing) return;
               (e.currentTarget as HTMLButtonElement).style.background = footerMode === "ask" ? "#EAE7F5" : "#DDD9D2";
               (e.currentTarget as HTMLButtonElement).style.color = footerMode === "ask" ? "#5B47D0" : "#3A3834";
             }}
@@ -172,4 +184,3 @@ export default function Footer({
     </div>
   );
 }
-
