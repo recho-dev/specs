@@ -1,5 +1,4 @@
-
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 
 interface Props {
   exampleId: string;
@@ -9,10 +8,26 @@ interface Props {
   isVisible: boolean;
 }
 
-export default function PreviewFrame({ exampleId, exampleCode, libraryCode, generationId, isVisible }: Props) {
+export interface PreviewFrameHandle {
+  sendGetSnapshot: (exampleId: string) => void;
+}
+
+const PreviewFrame = forwardRef<PreviewFrameHandle, Props>(function PreviewFrame(
+  { exampleId, exampleCode, libraryCode, generationId, isVisible },
+  ref
+) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const pendingRef = useRef<{ libraryCode: string; exampleCode: string } | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    sendGetSnapshot: (id: string) => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "GET_SNAPSHOT", exampleId: id },
+        "*"
+      );
+    },
+  }));
 
   function sendRunCode(lc: string, ec: string) {
     iframeRef.current?.contentWindow?.postMessage(
@@ -21,7 +36,6 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, gene
     );
   }
 
-  // When iframe loads, mark ready and send any pending run
   function handleLoad() {
     readyRef.current = true;
     if (pendingRef.current) {
@@ -30,7 +44,6 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, gene
     }
   }
 
-  // Re-run whenever libraryCode, exampleCode, or generationId changes
   useEffect(() => {
     if (!libraryCode.trim()) return;
     if (readyRef.current) {
@@ -51,4 +64,6 @@ export default function PreviewFrame({ exampleId, exampleCode, libraryCode, gene
       title={`Preview: ${exampleId}`}
     />
   );
-}
+});
+
+export default PreviewFrame;

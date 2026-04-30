@@ -11,6 +11,7 @@ import Footer, { type FooterMode } from "./workbench/Footer";
 import SourcePanel from "./workbench/SourcePanel";
 import ExamplesList from "./workbench/ExamplesList";
 import VersionsModal from "./workbench/VersionsModal";
+import SnapshotModal from "./workbench/SnapshotModal";
 
 const EMPTY_SOURCE_PLACEHOLDER = `// Library source appears after generation.\n// No need to edit this file manually.`;
 
@@ -39,13 +40,16 @@ export default function Workbench() {
   const reorderExamples = useWorkbenchStore((s) => s.reorderExamples);
   const chatFromGenerate = useWorkbenchStore((s) => s.chatFromGenerate);
   const chat = useWorkbenchStore((s) => s.chat);
+  const snapshotBlobs = useWorkbenchStore((s) => s.snapshotBlobs);
+  const requestSnapshotCapture = useWorkbenchStore((s) => s.requestSnapshotCapture);
+  const deleteSnapshot = useWorkbenchStore((s) => s.deleteSnapshot);
+  const setExampleSnapshot = useWorkbenchStore((s) => s.setExampleSnapshot);
+  const chatFromSnapshot = useWorkbenchStore((s) => s.chatFromSnapshot);
 
   const [renamingExampleId, setRenamingExampleId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameInputRef = useRef<HTMLInputElement | null>(null);
   const [insertHoverAfterId, setInsertHoverAfterId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const confirmPopupRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!renamingExampleId) return;
@@ -63,30 +67,11 @@ export default function Workbench() {
     }
   }, [activeExampleId, renamingExampleId]);
 
-  useEffect(() => {
-    if (!confirmDeleteId) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setConfirmDeleteId(null);
-    };
-    const onMouseDown = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (confirmPopupRef.current && !confirmPopupRef.current.contains(target)) {
-        setConfirmDeleteId(null);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mousedown", onMouseDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mousedown", onMouseDown);
-    };
-  }, [confirmDeleteId]);
-
   const [aiInput, setAiInput] = useState("");
   const [footerMode, setFooterMode] = useState<FooterMode>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [diffModalOpen, setDiffModalOpen] = useState(false);
+  const [snapshotModalExampleId, setSnapshotModalExampleId] = useState<string | null>(null);
   const askInputRef = useRef<HTMLInputElement>(null);
   const sourcePanelRef   = useRef<PanelImperativeHandle | null>(null);
   const examplesPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -352,13 +337,13 @@ export default function Workbench() {
             renameInputRef={renameInputRef}
             insertHoverAfterId={insertHoverAfterId}
             setInsertHoverAfterId={setInsertHoverAfterId}
-            confirmDeleteId={confirmDeleteId}
-            setConfirmDeleteId={setConfirmDeleteId}
-            confirmPopupRef={confirmPopupRef}
             isExpanded={isExpanded}
             toggleExpand={toggleExpand}
             reorderExamples={reorderExamples}
             displayTitle={exampleDisplayTitle}
+            requestSnapshotCapture={requestSnapshotCapture}
+            deleteSnapshot={deleteSnapshot}
+            onOpenSnapshotModal={setSnapshotModalExampleId}
           />
 
           {/* API key panel (only shown when key is missing) */}
@@ -406,6 +391,29 @@ export default function Workbench() {
       {diffModalOpen && lastDiff && lastDiff.length > 0 && (
         <DiffModal diffs={lastDiff} onClose={() => setDiffModalOpen(false)} />
       )}
+      {(() => {
+        if (!snapshotModalExampleId) return null;
+        const ex = examples.find((e) => e.id === snapshotModalExampleId);
+        if (!ex) return null;
+        const snapshotHtml = snapshotBlobs.find((b) => b.id === ex.snapshotId)?.html ?? '';
+        const currentHtml = ex.snapshotCurrentHtml ?? '';
+        return (
+          <SnapshotModal
+            exampleName={exampleDisplayTitle(ex.name)}
+            snapshotHtml={snapshotHtml}
+            currentHtml={currentHtml}
+            onClose={() => setSnapshotModalExampleId(null)}
+            onFix={() => {
+              setSnapshotModalExampleId(null);
+              chatFromSnapshot(snapshotModalExampleId, snapshotHtml, currentHtml).catch(() => {});
+            }}
+            onUpdateSnapshot={() => {
+              setExampleSnapshot(snapshotModalExampleId, currentHtml).catch(() => {});
+              setSnapshotModalExampleId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

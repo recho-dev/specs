@@ -17,6 +17,8 @@ import type {
   ProjectFile,
   LoadedProject,
   ExampleStatus,
+  SnapshotStatus,
+  SnapshotBlob,
   ExportMeta,
 } from '@/types'
 
@@ -54,10 +56,21 @@ interface WorkbenchStore {
   toastState: ToastState | null
   lastDiff: FileDiff[] | null
 
+  snapshotBlobs: SnapshotBlob[]
+  snapshotCapturePending: string | null
+
   exportMeta: ExportMeta | null
   setExportMeta: (meta: ExportMeta) => void
   setToastState: (state: ToastState | null) => void
   setLastDiff: (diff: FileDiff[] | null) => void
+
+  setExampleSnapshot: (id: string, html: string) => Promise<void>
+  runSnapshotTest: (id: string, currentHtml: string) => void
+  clearSnapshotStatus: (id: string) => void
+  requestSnapshotCapture: (exampleId: string) => void
+  clearSnapshotCapturePending: () => void
+  chatFromSnapshot: (exampleId: string, snapshotHtml: string, currentHtml: string) => Promise<void>
+  deleteSnapshot: (id: string) => Promise<void>
 
   addExample: () => void
   insertExampleAt: (index: number) => void
@@ -144,6 +157,36 @@ function buildDoneSummary(
   return parts.length > 0 ? parts.join(', ') : 'No changes were necessary.'
 }
 
+function buildTruncatedDiff(before: string, after: string, maxLines = 80): string {
+  const a = before.split('\n')
+  const b = after.split('\n')
+  const lines: string[] = []
+
+  const len = Math.max(a.length, b.length)
+  for (let i = 0; i < len; i++) {
+    const la = a[i]
+    const lb = b[i]
+    if (la === undefined) {
+      lines.push(`+ ${lb}`)
+    } else if (lb === undefined) {
+      lines.push(`- ${la}`)
+    } else if (la !== lb) {
+      lines.push(`- ${la}`)
+      lines.push(`+ ${lb}`)
+    }
+  }
+
+  const truncated = lines.length > maxLines
+  const shown = lines.slice(0, maxLines)
+  return [
+    'Diff (baseline → current):',
+    '```diff',
+    ...shown,
+    ...(truncated ? [`… (${lines.length - maxLines} more lines truncated)`] : []),
+    '```',
+  ].join('\n')
+}
+
 // ── Selector ──────────────────────────────────────────────────────────────────
 
 export function selectHasChangedSinceLastGeneration(state: WorkbenchStore): boolean {
@@ -181,6 +224,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     lastGeneratedExamples: [],
     toastState: null,
     lastDiff: null,
+    snapshotBlobs: [],
+    snapshotCapturePending: null,
 
     setToastState: (state) => {
       set((s) => { s.toastState = state })
@@ -188,6 +233,75 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
     setLastDiff: (diff) => {
       set((s) => { s.lastDiff = diff })
+    },
+
+    setExampleSnapshot: async (id, html) => {
+      set((s) => {
+        let blob = s.snapshotBlobs.find((b) => b.html === html)
+        if (!blob) {
+          blob = { id: nanoid(), html }
+          s.snapshotBlobs.push(blob)
+        }
+        const ex = s.examples.find((e) => e.id === id)
+        if (ex) {
+          ex.snapshotId = blob.id
+          ex.snapshotStatus = 'pass'
+          ex.snapshotCurrentHtml = html
+        }
+      })
+      await ipc.projectSave(get().buildProjectFile())
+    },
+
+    runSnapshotTest: (id, currentHtml) => {
+      set((s) => {
+        const ex = s.examples.find((e) => e.id === id)
+        if (!ex?.snapshotId) return
+        const blob = s.snapshotBlobs.find((b) => b.id === ex.snapshotId)
+        if (!blob) return
+        ex.snapshotStatus = blob.html === currentHtml ? 'pass' : 'fail'
+        ex.snapshotCurrentHtml = currentHtml
+      })
+    },
+
+    clearSnapshotStatus: (id) => {
+      set((s) => {
+        const ex = s.examples.find((e) => e.id === id)
+        if (ex) ex.snapshotStatus = 'none'
+      })
+    },
+
+    requestSnapshotCapture: (exampleId) => {
+      set((s) => { s.snapshotCapturePending = exampleId })
+    },
+
+    clearSnapshotCapturePending: () => {
+      set((s) => { s.snapshotCapturePending = null })
+    },
+
+    deleteSnapshot: async (id) => {
+      set((s) => {
+        const ex = s.examples.find((e) => e.id === id)
+        if (ex) {
+          ex.snapshotId = undefined
+          ex.snapshotStatus = 'none'
+          ex.snapshotCurrentHtml = undefined
+        }
+      })
+      await ipc.projectSave(get().buildProjectFile())
+    },
+
+    chatFromSnapshot: async (exampleId, snapshotHtml, currentHtml) => {
+      const ex = get().examples.find((e) => e.id === exampleId)
+      if (!ex) return
+
+      const truncatedDiff = buildTruncatedDiff(snapshotHtml, currentHtml)
+      const instruction = [
+        `The snapshot test failed for "${ex.name}". Fix the example code (or the library if needed) so the rendered output matches the baseline.`,
+        '',
+        truncatedDiff,
+      ].join('\n')
+
+      return get().chat(instruction, 'chat')
     },
 
     loadProject: (project: LoadedProject) => {
@@ -206,6 +320,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.lastGeneratedExamples = file.examples
         s.toastState = null
         s.lastDiff = null
+        s.snapshotBlobs = file.snapshotBlobs ?? []
+        s.snapshotCapturePending = null
         s.examples = file.examples.map((e) => ({
           id: e.id,
           name: e.name,
@@ -213,6 +329,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           status: 'idle' as ExampleStatus,
           error: null,
           consoleOutput: [],
+          snapshotStatus: 'none' as SnapshotStatus,
+          snapshotId: e.snapshotId,
         }))
         s.exportMeta = file.exportMeta ?? null
       })
@@ -225,11 +343,15 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     buildProjectFile: (): ProjectFile => {
       const s = get()
       return {
-        examples: s.examples.map((e) => ({ id: e.id, name: e.name, code: e.code })),
+        examples: s.examples.map((e) => ({
+          id: e.id, name: e.name, code: e.code,
+          ...(e.snapshotId ? { snapshotId: e.snapshotId } : {}),
+        })),
         libraryCode: s.library.code,
         activeExampleId: s.activeExampleId,
         viewingLibrary: s.viewingLibrary,
         versions: s.versions,
+        snapshotBlobs: s.snapshotBlobs,
         ...(s.exportMeta ? { exportMeta: s.exportMeta } : {}),
       }
     },
@@ -248,6 +370,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           status: 'idle',
           error: null,
           consoleOutput: [],
+          snapshotStatus: 'none',
         })
         state.activeExampleId = id
         state.viewingLibrary = false
@@ -264,6 +387,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           status: 'idle' as ExampleStatus,
           error: null,
           consoleOutput: [],
+          snapshotStatus: 'none' as SnapshotStatus,
         }
         const clamped = Math.max(0, Math.min(index, state.examples.length))
         state.examples.splice(clamped, 0, next)
@@ -292,7 +416,10 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     setExampleCode: (id, code) => {
       set((state) => {
         const ex = state.examples.find((e) => e.id === id)
-        if (ex) ex.code = code
+        if (ex) {
+          ex.code = code
+          ex.snapshotStatus = 'none'
+        }
       })
     },
 
@@ -388,6 +515,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         id: e.id,
         name: e.name,
         code: e.code,
+        ...(e.snapshotId ? { snapshotId: e.snapshotId } : {}),
       }))
 
       const versionId = nanoid()
@@ -457,6 +585,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           status: 'idle' as ExampleStatus,
           error: null,
           consoleOutput: [],
+          snapshotStatus: 'none' as SnapshotStatus,
+          snapshotId: e.snapshotId,
         }))
         s.versions.unshift(restoreVersion)
         if (s.versions.length > MAX_VERSIONS) s.versions.splice(MAX_VERSIONS)
@@ -517,7 +647,10 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
           const libraryCode = extractCodeFromBuffer(buffer)
           get().setLibraryCode(libraryCode)
-          set((s) => { s.generationId += 1 })
+          set((s) => {
+            s.generationId += 1
+            if (s.activeExampleId) s.viewingLibrary = false
+          })
           resolve(true)
         })
 
@@ -631,6 +764,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
                 status: 'idle',
                 error: null,
                 consoleOutput: [],
+                snapshotStatus: 'none',
               })
               s.activeExampleId = id
               s.viewingLibrary = false
