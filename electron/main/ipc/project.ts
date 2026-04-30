@@ -10,7 +10,7 @@ export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
 }
 
-const RFORM_FILTER = [{ name: 'Recho Form Projects', extensions: ['rform'] }]
+const RFORM_FILTER = [{ name: 'Recho Specs Projects', extensions: ['rform'] }]
 
 const EMPTY_PROJECT: ProjectFile = {
   examples: [],
@@ -23,7 +23,7 @@ const EMPTY_PROJECT: ProjectFile = {
 
 function setTitle(filePath: string | null): void {
   const name = filePath ? basename(filePath, '.rform') : 'Untitled'
-  mainWindow?.setTitle(`Recho Form — ${name}`)
+  mainWindow?.setTitle(`Recho Specs — ${name}`)
 }
 
 ipcMain.handle('project:new', (): LoadedProject => {

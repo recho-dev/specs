@@ -98,7 +98,7 @@ ipcMain.handle('claude:summarize', async (_e, body: SummarizeRequestBody): Promi
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 256,
     system:
-      'You summarize what changed in a Recho Form session. Respond with two parts separated by "|||": first, a short version label (under 8 words, no punctuation at end, e.g. "Added animation example, updated library"); second, 2-3 sentences describing what changed — mention both library updates AND example additions, removals, or fixes if applicable, written directly to the developer. Be specific and concrete.',
+      'You summarize what changed in a Recho Specs session. Respond with two parts separated by "|||": first, a short version label (under 8 words, no punctuation at end, e.g. "Added animation example, updated library"); second, 2-3 sentences describing what changed — mention both library updates AND example additions, removals, or fixes if applicable, written directly to the developer. Be specific and concrete.',
     messages: [{ role: 'user', content: context }],
   })
 
