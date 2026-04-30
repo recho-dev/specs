@@ -1,4 +1,4 @@
-import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest } from '@/types'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, SummarizeRequestBody, ExportRequestBody, ExportResult, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest, GenerateTestFilesRequest } from '@/types'
 
 const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI
 
@@ -21,6 +21,7 @@ interface ElectronAPI {
   invokeExport: (body: ExportRequestBody) => Promise<ExportResult>
   previewSync: (body: PreviewSyncRequest) => Promise<PreviewFile[]>
   generateReadme: (body: GenerateReadmeRequest) => Promise<string>
+  generateTestFiles: (body: GenerateTestFilesRequest) => Promise<PreviewFile[]>
   openPath: (path: string) => Promise<void>
 }
 
@@ -43,5 +44,6 @@ export const ipc = {
   invokeExport: (body: ExportRequestBody) => api().invokeExport(body),
   previewSync: (body: PreviewSyncRequest) => api().previewSync(body),
   generateReadme: (body: GenerateReadmeRequest) => api().generateReadme(body),
+  generateTestFiles: (body: GenerateTestFilesRequest) => api().generateTestFiles(body),
   openPath: (path: string) => api().openPath(path),
 }

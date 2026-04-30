@@ -89,7 +89,7 @@ export interface ExportMeta {
 export interface ExportRequestBody {
   meta: ExportMeta
   libraryCode: string
-  examples: { name: string; code: string }[]
+  examples: { name: string; code: string; snapshotHtml?: string }[]
   previewFiles?: PreviewFile[]
   readmeContent?: string
 }
@@ -163,10 +163,15 @@ export interface PreviewFile {
 export interface PreviewSyncRequest {
   meta: ExportMeta
   libraryCode: string
-  examples: { name: string; code: string }[]
+  examples: { name: string; code: string; snapshotHtml?: string }[]
 }
 
 export interface GenerateReadmeRequest {
   meta: ExportMeta
   examples: { name: string; code: string }[]
+}
+
+export interface GenerateTestFilesRequest {
+  examples: { name: string; code: string; snapshotHtml?: string }[]
+  packageName: string
 }

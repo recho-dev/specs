@@ -16,6 +16,10 @@
     (function () {
       'use strict';
 
+      // Force devicePixelRatio=1 so captured snapshots match jsdom's default,
+      // making snapshot tests consistent across Retina and non-Retina displays.
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1 });
+
       var currentExampleId = null;
 
       // Console interception

@@ -1,10 +1,11 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import type { ExportRequestBody, ExportResult, ExportMeta, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest } from '@/types'
+import type { ExportRequestBody, ExportResult, ExportMeta, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest, GenerateTestFilesRequest } from '@/types'
 import { detectDependencies, resolveDependencyVersions } from './deps'
 import { buildGitignore, buildLicenseFile, detectNamespace, buildPackageJson, buildRspackConfig } from './npm-package'
 import { generateReadme } from './readme'
+import { getTestFilePaths, buildTestFiles } from './test'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -15,10 +16,11 @@ export function setMainWindow(win: BrowserWindow): void {
 ipcMain.handle('project:preview-sync', async (_e, body: PreviewSyncRequest): Promise<PreviewFile[]> => {
   const namespace = detectNamespace(body.examples, body.meta.name)
   const dependencies = await resolveDependencyVersions(detectDependencies(body.libraryCode))
+  const hasTests = getTestFilePaths(body.examples).length > 0
 
   const files: PreviewFile[] = [
     { path: 'src/index.js', content: body.libraryCode },
-    { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies), null, 2) },
+    { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests), null, 2) },
     { path: 'rspack.config.js', content: buildRspackConfig(body.meta.name, namespace) },
     { path: '.gitignore', content: buildGitignore() },
   ]
@@ -27,6 +29,10 @@ ipcMain.handle('project:preview-sync', async (_e, body: PreviewSyncRequest): Pro
   if (license) files.push({ path: 'LICENSE', content: license })
 
   return files
+})
+
+ipcMain.handle('project:generate-test-files', async (_e, body: GenerateTestFilesRequest): Promise<PreviewFile[]> => {
+  return buildTestFiles(body.examples, body.packageName)
 })
 
 ipcMain.handle('project:generate-readme', async (_e, body: GenerateReadmeRequest): Promise<string> => {
@@ -49,7 +55,7 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
       const entries = await fs.readdir(packageDir)
       await Promise.all(
         entries
-          .filter((e) => e !== '.git')
+          .filter((e) => !['node_modules', 'dist', '.git', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'].includes(e))
           .map((e) => fs.rm(join(packageDir, e), { recursive: true, force: true }))
       )
     } else {
@@ -69,16 +75,27 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
       }
     } else {
       const namespace = detectNamespace(body.examples, body.meta.name)
-      const dependencies = await resolveDependencyVersions(detectDependencies(body.libraryCode))
+      const [dependencies, testFiles] = await Promise.all([
+        resolveDependencyVersions(detectDependencies(body.libraryCode)),
+        buildTestFiles(body.examples, body.meta.name),
+      ])
+      const hasTests = testFiles.length > 0
 
-      await fs.mkdir(join(packageDir, 'src'), { recursive: true })
-      await fs.writeFile(join(packageDir, 'src', 'index.js'), body.libraryCode, 'utf-8')
-      await fs.writeFile(join(packageDir, 'package.json'), JSON.stringify(buildPackageJson(body.meta, dependencies), null, 2), 'utf-8')
-      await fs.writeFile(join(packageDir, 'rspack.config.js'), buildRspackConfig(body.meta.name, namespace), 'utf-8')
-      await fs.writeFile(join(packageDir, '.gitignore'), buildGitignore(), 'utf-8')
-
+      const allFiles: PreviewFile[] = [
+        { path: 'src/index.js', content: body.libraryCode },
+        { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests), null, 2) },
+        { path: 'rspack.config.js', content: buildRspackConfig(body.meta.name, namespace) },
+        { path: '.gitignore', content: buildGitignore() },
+        ...testFiles,
+      ]
       const licenseText = buildLicenseFile(body.meta)
-      if (licenseText) await fs.writeFile(join(packageDir, 'LICENSE'), licenseText, 'utf-8')
+      if (licenseText) allFiles.push({ path: 'LICENSE', content: licenseText })
+
+      for (const file of allFiles) {
+        const dest = join(packageDir, file.path)
+        await fs.mkdir(join(dest, '..'), { recursive: true })
+        await fs.writeFile(dest, file.content, 'utf-8')
+      }
     }
 
     const readme = body.readmeContent ?? await generateReadme(body.meta, body.examples)

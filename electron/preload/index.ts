@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, ExportRequestBody, ExportResult, SummarizeRequestBody, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest } from '../../src/types'
+import type { GenerateRequestBody, ChatRequestBody, ChatPlan, LoadedProject, ProjectFile, ExportRequestBody, ExportResult, SummarizeRequestBody, PreviewFile, PreviewSyncRequest, GenerateReadmeRequest, GenerateTestFilesRequest } from '../../src/types'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Claude: streaming generation
@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('project:preview-sync', body),
   generateReadme: (body: GenerateReadmeRequest): Promise<string> =>
     ipcRenderer.invoke('project:generate-readme', body),
+  generateTestFiles: (body: GenerateTestFilesRequest): Promise<PreviewFile[]> =>
+    ipcRenderer.invoke('project:generate-test-files', body),
   openPath: (path: string): Promise<void> =>
     ipcRenderer.invoke('shell:open-path', path),
 })
