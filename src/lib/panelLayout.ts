@@ -8,7 +8,7 @@ export interface SavedPanelLayout {
 }
 
 function storageKey(projectPath: string) {
-  return `forma:panel-layout:${projectPath}`
+  return `recho-form:panel-layout:${projectPath}`
 }
 
 export function readPanelLayout(projectPath: string): SavedPanelLayout {

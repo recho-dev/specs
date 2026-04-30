@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Workbench from './Workbench'
 import ProjectManager from './ProjectManager'
 import ExportModal from './ExportModal'
@@ -37,6 +37,15 @@ export default function App() {
     if (!projectPath) return 'my-library'
     return getBasename(projectPath)
   }, [projectPath])
+
+  useEffect(() => {
+    const lastPath = sessionStorage.getItem('recho-form:last-project')
+    if (lastPath) {
+      ipc.projectOpenPath(lastPath).then((project) => {
+        if (project) loadProject(project)
+      })
+    }
+  }, [])
 
   async function handleNewProject() {
     loadProject(await ipc.projectNew())
@@ -108,7 +117,7 @@ export default function App() {
         ) : (
           <div className="h-full flex flex-col items-center justify-center gap-6" style={{ background: '#F5F4F2' }}>
             <div className="text-center">
-              <h1 className="text-4xl font-black font-serif tracking-tight mb-2" style={{ color: '#3A3834' }}>Forma</h1>
+              <h1 className="text-4xl font-black font-serif tracking-tight mb-2" style={{ color: '#3A3834' }}>Recho Form</h1>
               <p className="text-lg" style={{ color: '#8A8780' }}>Build JavaScript libraries from examples.</p>
             </div>
             <div className="flex gap-3">

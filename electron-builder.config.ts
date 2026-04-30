@@ -1,8 +1,8 @@
 import type { Configuration } from 'electron-builder'
 
 const config: Configuration = {
-  appId: 'com.forma.app',
-  productName: 'Forma',
+  appId: 'dev.recho.form',
+  productName: 'Recho Form',
   directories: {
     output: 'dist',
     buildResources: 'resources',

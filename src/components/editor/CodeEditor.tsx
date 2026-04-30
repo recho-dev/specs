@@ -6,7 +6,7 @@ type MonacoOnMount = NonNullable<React.ComponentProps<typeof MonacoEditor>['onMo
 type EditorInstance = Parameters<MonacoOnMount>[0]
 type MonacoInstance = Parameters<MonacoOnMount>[1]
 
-const THEME_CHROME = 'forma-chrome'
+const THEME_CHROME = 'recho-form-chrome'
 
 function defineChromeTheme(monaco: MonacoInstance) {
   monaco.editor.defineTheme(THEME_CHROME, {

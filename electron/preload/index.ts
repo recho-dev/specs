@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('project:new'),
   projectOpen: (): Promise<LoadedProject | null> =>
     ipcRenderer.invoke('project:open'),
+  projectOpenPath: (filePath: string): Promise<LoadedProject | null> =>
+    ipcRenderer.invoke('project:open-path', filePath),
   projectSave: (file: ProjectFile): Promise<string | null> =>
     ipcRenderer.invoke('project:save', file),
 

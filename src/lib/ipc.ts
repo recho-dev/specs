@@ -12,6 +12,7 @@ interface ElectronAPI {
   invokeSummarize: (body: SummarizeRequestBody) => Promise<{ description: string; aiMessage: string }>
   projectNew: () => Promise<LoadedProject>
   projectOpen: () => Promise<LoadedProject | null>
+  projectOpenPath: (filePath: string) => Promise<LoadedProject | null>
   projectSave: (file: ProjectFile) => Promise<string | null>
   hasApiKey: () => Promise<boolean>
   setApiKey: (key: string) => Promise<void>
@@ -34,6 +35,7 @@ export const ipc = {
   invokeSummarize: (body: SummarizeRequestBody) => api().invokeSummarize(body),
   projectNew: () => api().projectNew(),
   projectOpen: () => api().projectOpen(),
+  projectOpenPath: (filePath: string) => api().projectOpenPath(filePath),
   projectSave: (file: ProjectFile) => api().projectSave(file),
   hasApiKey: () => api().hasApiKey(),
   setApiKey: (key: string) => api().setApiKey(key),
