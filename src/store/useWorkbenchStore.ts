@@ -306,9 +306,9 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
 
     loadProject: (project: LoadedProject) => {
       if (project.filePath) {
-        sessionStorage.setItem('recho-form:last-project', project.filePath)
+        sessionStorage.setItem('recho-specs:last-project', project.filePath)
       } else {
-        sessionStorage.removeItem('recho-form:last-project')
+        sessionStorage.removeItem('recho-specs:last-project')
       }
       const { file } = project
       set((s) => {
@@ -342,7 +342,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     },
 
     setProjectPath: (path: string) => {
-      sessionStorage.setItem('recho-form:last-project', path)
+      sessionStorage.setItem('recho-specs:last-project', path)
       set((s) => { s.projectPath = path })
     },
 

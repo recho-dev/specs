@@ -1,7 +1,7 @@
 import { app, BrowserWindow, protocol, net, Menu, ipcMain, shell } from 'electron'
 import { join } from 'path'
 
-app.setName('Recho Form')
+app.setName('Recho Specs')
 
 // Must be called before app.ready
 protocol.registerSchemesAsPrivileged([{
@@ -76,16 +76,16 @@ app.on('web-contents-created', (_e, contents) => {
 function buildMenu(win: BrowserWindow): Menu {
   return Menu.buildFromTemplate([
     {
-      label: 'Recho Form',
+      label: 'Recho Specs',
       submenu: [
         {
-          label: 'About Recho Form',
-          click: () => shell.openExternal('https://recho.dev/form')
+          label: 'About Recho Specs',
+          click: () => shell.openExternal('https://recho.dev/specs')
         },
         { type: 'separator' },
         { role: 'hide' },
         { type: 'separator' },
-        { role: 'quit', label: 'Quit Recho Form' }
+        { role: 'quit', label: 'Quit Recho Specs' }
       ]
     },
     {

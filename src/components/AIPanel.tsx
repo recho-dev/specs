@@ -38,7 +38,7 @@ export default function AIPanel({ mode, apiKeyStatus, isSaving = false, onSaveAp
           </span>
         </div>
         <p className="text-[13px] leading-relaxed" style={{ color: '#6E6A62' }}>
-          Recho Form uses Claude to generate and refine your library. Enter your{' '}
+          Recho Specs uses Claude to generate and refine your library. Enter your{' '}
           <a
             href="https://platform.claude.com/settings/keys"
             target="_blank"
