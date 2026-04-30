@@ -10,7 +10,7 @@ export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
 }
 
-const FORMA_FILTER = [{ name: 'Forma Projects', extensions: ['forma'] }]
+const RFORM_FILTER = [{ name: 'Recho Form Projects', extensions: ['rform'] }]
 
 const EMPTY_PROJECT: ProjectFile = {
   examples: [],
@@ -22,8 +22,8 @@ const EMPTY_PROJECT: ProjectFile = {
 }
 
 function setTitle(filePath: string | null): void {
-  const name = filePath ? basename(filePath, '.forma') : 'Untitled'
-  mainWindow?.setTitle(`Forma — ${name}`)
+  const name = filePath ? basename(filePath, '.rform') : 'Untitled'
+  mainWindow?.setTitle(`Recho Form — ${name}`)
 }
 
 ipcMain.handle('project:new', (): LoadedProject => {
@@ -35,7 +35,7 @@ ipcMain.handle('project:new', (): LoadedProject => {
 ipcMain.handle('project:open', async (): Promise<LoadedProject | null> => {
   const result = await dialog.showOpenDialog({
     title: 'Open Project',
-    filters: FORMA_FILTER,
+    filters: RFORM_FILTER,
     properties: ['openFile'],
   })
   if (result.canceled || !result.filePaths[0]) return null
@@ -52,12 +52,24 @@ ipcMain.handle('project:open', async (): Promise<LoadedProject | null> => {
   }
 })
 
+ipcMain.handle('project:open-path', async (_e, filePath: string): Promise<LoadedProject | null> => {
+  try {
+    const raw = await fs.readFile(filePath, 'utf-8')
+    const file: ProjectFile = { ...EMPTY_PROJECT, ...JSON.parse(raw) }
+    currentFilePath = filePath
+    setTitle(filePath)
+    return { filePath, file }
+  } catch {
+    return null
+  }
+})
+
 ipcMain.handle('project:save', async (_e, file: ProjectFile): Promise<string | null> => {
   if (!currentFilePath) {
     const result = await dialog.showSaveDialog({
       title: 'Save Project',
-      defaultPath: 'untitled.forma',
-      filters: FORMA_FILTER,
+      defaultPath: 'untitled.rform',
+      filters: RFORM_FILTER,
     })
     if (result.canceled || !result.filePath) return null
     currentFilePath = result.filePath

@@ -1,6 +1,8 @@
 import { app, BrowserWindow, protocol, net, Menu, ipcMain, shell } from 'electron'
 import { join } from 'path'
 
+app.setName('Recho Form')
+
 // Must be called before app.ready
 protocol.registerSchemesAsPrivileged([{
   scheme: 'app',
@@ -74,15 +76,28 @@ app.on('web-contents-created', (_e, contents) => {
 function buildMenu(win: BrowserWindow): Menu {
   return Menu.buildFromTemplate([
     {
-      label: 'File',
+      label: 'Recho Form',
       submenu: [
         {
-          label: 'New Project',
+          label: 'About Recho Form',
+          click: () => shell.openExternal('https://recho.dev/form')
+        },
+        { type: 'separator' },
+        { role: 'hide' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Quit Recho Form' }
+      ]
+    },
+    {
+      label: 'Project',
+      submenu: [
+        {
+          label: 'New',
           accelerator: 'CmdOrCtrl+N',
           click: () => win.webContents.send('menu:new-project')
         },
         {
-          label: 'Open Project...',
+          label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
           click: () => win.webContents.send('menu:open-project')
         },
@@ -91,16 +106,6 @@ function buildMenu(win: BrowserWindow): Menu {
           accelerator: 'CmdOrCtrl+S',
           click: () => win.webContents.send('menu:save-project')
         },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
-        { role: 'cut' }, { role: 'copy' }, { role: 'paste' },
-        { role: 'selectAll' }
       ]
     },
     {
@@ -109,10 +114,6 @@ function buildMenu(win: BrowserWindow): Menu {
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' }
       ]
     },
     {
