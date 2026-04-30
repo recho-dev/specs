@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { File, ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, CirclePlus, Clock, ArrowUp, Loader2, GripVertical, MessageSquare } from "lucide-react";
-import type { ExampleStatus } from "@/types";
+import type { ExampleStatus, SnapshotStatus } from "@/types";
 
 export function FileIcon() {
   return <File size={16} />;
@@ -81,29 +81,48 @@ export function InsertBetweenButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function StatusBadge({ status }: { status: ExampleStatus }) {
+export function StatusBadge({
+  status,
+  snapshotStatus,
+  onClick,
+}: {
+  status: ExampleStatus;
+  snapshotStatus?: SnapshotStatus;
+  onClick?: () => void;
+}) {
   if (status === "idle") return null;
-  const styles: Record<string, { bg: string; color: string }> = {
-    running: { bg: "#FFF3DC", color: "#B07010" },
-    pass: { bg: "#E2F5EB", color: "#1E8847" },
-    fail: { bg: "#FDECEA", color: "#C0392B" },
-  };
-  const s = styles[status];
-  if (!s) return null;
+
+  let label: string;
+  let bg: string;
+  let color: string;
+  let pulsing = false;
+
+  if (status === "running") {
+    label = "running"; bg = "#FFF3DC"; color = "#B07010"; pulsing = true;
+  } else if (status === "fail") {
+    label = "error"; bg = "#FDECEA"; color = "#C0392B";
+  } else if (snapshotStatus === "fail") {
+    label = "mismatch"; bg = "#FFF3DC"; color = "#B07010";
+  } else {
+    label = "pass"; bg = "#E2F5EB"; color = "#1E8847";
+  }
+
   return (
     <span
+      onClick={onClick}
       style={{
         fontSize: 12,
         fontWeight: 500,
         padding: "2px 6px",
         borderRadius: 4,
-        background: s.bg,
-        color: s.color,
+        background: bg,
+        color: color,
         letterSpacing: "0.03em",
-        animation: status === "running" ? "status-pulse 1s ease-in-out infinite" : "none",
+        animation: pulsing ? "status-pulse 1s ease-in-out infinite" : "none",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
-      {status}
+      {label}
     </span>
   );
 }

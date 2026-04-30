@@ -18,6 +18,7 @@ const EMPTY_PROJECT: ProjectFile = {
   activeExampleId: null,
   viewingLibrary: false,
   versions: [],
+  snapshotBlobs: [],
 }
 
 function setTitle(filePath: string | null): void {

@@ -121,7 +121,18 @@
 
       // Message receiver
       window.addEventListener('message', function (event) {
-        if (!event.data || event.data.type !== 'RUN_CODE') return;
+        if (!event.data) return;
+
+        if (event.data.type === 'GET_SNAPSHOT') {
+          var html = (document.getElementById('container') || { innerHTML: '' }).innerHTML;
+          window.parent.postMessage(
+            { type: 'SNAPSHOT_RESULT', exampleId: event.data.exampleId, html: html },
+            '*'
+          );
+          return;
+        }
+
+        if (event.data.type !== 'RUN_CODE') return;
 
         var data = event.data;
         handleRunCode(data)

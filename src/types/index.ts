@@ -1,4 +1,10 @@
 export type ExampleStatus = "idle" | "running" | "pass" | "fail";
+export type SnapshotStatus = "none" | "pass" | "fail";
+
+export interface SnapshotBlob {
+  id: string;
+  html: string;
+}
 
 export interface ConsoleLine {
   level: "log" | "warn" | "error" | "info";
@@ -13,6 +19,9 @@ export interface Example {
   status: ExampleStatus;
   error: string | null;
   consoleOutput: ConsoleLine[];
+  snapshotStatus: SnapshotStatus;
+  snapshotId?: string;
+  snapshotCurrentHtml?: string;
 }
 
 export interface LibraryState {
@@ -37,7 +46,13 @@ export interface ConsoleMessage {
   args: string[];
 }
 
-export type SandboxInboundMessage = RunResultMessage | ConsoleMessage;
+export interface SnapshotResultMessage {
+  type: "SNAPSHOT_RESULT";
+  exampleId: string;
+  html: string;
+}
+
+export type SandboxInboundMessage = RunResultMessage | ConsoleMessage | SnapshotResultMessage;
 
 export interface GenerateRequestBody {
   examples: { name: string; code: string }[];
@@ -50,6 +65,7 @@ export interface VersionedExample {
   id: string;
   name: string;
   code: string;
+  snapshotId?: string;
 }
 
 export interface Version {
@@ -89,6 +105,7 @@ export interface ProjectFile {
   viewingLibrary: boolean
   versions: Version[]
   exportMeta?: ExportMeta
+  snapshotBlobs: SnapshotBlob[]
 }
 
 export interface LoadedProject {

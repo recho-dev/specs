@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, createRef } from "react";
+import type { RefObject } from "react";
 import { Terminal } from "lucide-react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle } from "react-resizable-panels";
 import { useWorkbenchStore } from "@/store/useWorkbenchStore";
 import { readPanelLayout, savePanelLayout } from "@/lib/panelLayout";
 import type { SandboxInboundMessage } from "@/types";
-import PreviewFrame from "./PreviewFrame";
+import PreviewFrame, { type PreviewFrameHandle } from "./PreviewFrame";
 import ConsoleLog from "./ConsoleLog";
 
 function TerminalIcon() { return <Terminal size={16} />; }
@@ -23,6 +24,20 @@ export default function PreviewPanel() {
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
   const appendConsoleLine = useWorkbenchStore((s) => s.appendConsoleLine);
+  const setExampleSnapshot = useWorkbenchStore((s) => s.setExampleSnapshot);
+  const runSnapshotTest = useWorkbenchStore((s) => s.runSnapshotTest);
+  const snapshotCapturePending = useWorkbenchStore((s) => s.snapshotCapturePending);
+  const clearSnapshotCapturePending = useWorkbenchStore((s) => s.clearSnapshotCapturePending);
+
+  const frameRefsMap = useRef<Map<string, RefObject<PreviewFrameHandle | null>>>(new Map());
+  const pendingSnapshots = useRef<Map<string, 'capture' | 'compare'>>(new Map());
+
+  function getFrameRef(id: string): RefObject<PreviewFrameHandle | null> {
+    if (!frameRefsMap.current.has(id)) {
+      frameRefsMap.current.set(id, createRef<PreviewFrameHandle>());
+    }
+    return frameRefsMap.current.get(id)!;
+  }
 
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleBtnHovered, setConsoleBtnHovered] = useState(false);
@@ -33,8 +48,25 @@ export default function PreviewPanel() {
     function handleMessage(event: MessageEvent) {
       const msg = event.data as SandboxInboundMessage;
       if (!msg?.type) return;
+
       if (msg.type === "RUN_RESULT") {
         setExampleStatus(msg.exampleId, msg.status, msg.error);
+        if (msg.status === "pass") {
+          const state = useWorkbenchStore.getState();
+          const ex = state.examples.find((e) => e.id === msg.exampleId);
+          if (ex?.snapshotId) {
+            pendingSnapshots.current.set(msg.exampleId, "compare");
+            frameRefsMap.current.get(msg.exampleId)?.current?.sendGetSnapshot(msg.exampleId);
+          }
+        }
+      } else if (msg.type === "SNAPSHOT_RESULT") {
+        const mode = pendingSnapshots.current.get(msg.exampleId);
+        pendingSnapshots.current.delete(msg.exampleId);
+        if (mode === "capture") {
+          setExampleSnapshot(msg.exampleId, msg.html);
+        } else if (mode === "compare") {
+          runSnapshotTest(msg.exampleId, msg.html);
+        }
       } else if (msg.type === "CONSOLE") {
         appendConsoleLine(msg.exampleId, {
           level: msg.level,
@@ -45,7 +77,15 @@ export default function PreviewPanel() {
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [setExampleStatus, appendConsoleLine]);
+  }, [setExampleStatus, appendConsoleLine, setExampleSnapshot, runSnapshotTest]);
+
+  useEffect(() => {
+    if (!snapshotCapturePending) return;
+    const id = snapshotCapturePending;
+    pendingSnapshots.current.set(id, "capture");
+    frameRefsMap.current.get(id)?.current?.sendGetSnapshot(id);
+    clearSnapshotCapturePending();
+  }, [snapshotCapturePending, clearSnapshotCapturePending]);
 
   const displayedExample = viewingLibrary
     ? null
@@ -179,6 +219,7 @@ export default function PreviewPanel() {
             [...examples].sort((a, b) => (a.id < b.id ? -1 : 1)).map((ex) => (
               <PreviewFrame
                 key={ex.id}
+                ref={getFrameRef(ex.id)}
                 exampleId={ex.id}
                 exampleCode={ex.code}
                 libraryCode={libraryCode}
