@@ -89,6 +89,20 @@ function buildMenu(win: BrowserWindow): Menu {
       ]
     },
     {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'delete' },
+        { type: 'separator' },
+        { role: 'selectAll' },
+      ]
+    },
+    {
       label: 'Project',
       submenu: [
         {
