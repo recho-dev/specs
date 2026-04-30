@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ExportMeta, PreviewFile } from '@/types'
-import { ArrowLeft, ArrowRight, Check, Download, FileCode, FileText, Loader2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Download, FileCode, FileText, Folder, Loader2, X } from 'lucide-react'
 import { ipc } from '@/lib/ipc'
 import CodeEditor from './editor/CodeEditor'
 
@@ -8,7 +8,7 @@ interface Props {
   defaultName: string
   initialMeta: ExportMeta | null
   libraryCode: string
-  examples: { name: string; code: string }[]
+  examples: { name: string; code: string; snapshotHtml?: string }[]
   onClose: () => void
   onExport: (meta: ExportMeta, previewFiles?: PreviewFile[], readmeContent?: string) => Promise<{ ok: boolean; exportPath?: string; error?: string }>
 }
@@ -68,19 +68,184 @@ function Field({
   )
 }
 
-function fileIcon(path: string) {
-  if (path.endsWith('.js')) return <FileCode size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
+// Mirrors toSlug in test.ts — used to compute pending paths for spinner display
+function slugify(name: string): string {
+  const slug = name
+    .replace(/\.js$/, '')
+    .replace(/([A-Z])/g, (m) => '-' + m.toLowerCase())
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'example'
+}
+
+function pendingTestPaths(examples: { snapshotHtml?: string; name: string }[]): string[] {
+  const eligible = examples.filter((e) => !!e.snapshotHtml)
+  if (eligible.length === 0) return []
+  const slugs = eligible.map((e) => slugify(e.name))
+  return [
+    ...slugs.map((s) => `test/examples/${s}.js`),
+    'test/examples/index.js',
+    ...slugs.map((s) => `test/output/${s}.html`),
+    'test/snapshot.spec.js',
+    'vitest.config.js',
+  ]
+}
+
+// ── File tree ─────────────────────────────────────────────────────────────────
+
+type TreeNode =
+  | { type: 'folder'; name: string; children: TreeNode[] }
+  | { type: 'file'; name: string; path: string; isGenerating: boolean }
+
+function fileSortKey(path: string): string {
+  if (path === 'src/index.js') return '0'
+  if (path.startsWith('test/examples/')) return '1a' + path
+  if (path.startsWith('test/output/')) return '1b' + path
+  if (path.startsWith('test/')) return '1c' + path
+  if (path === 'package.json') return '2'
+  if (path === 'rspack.config.js') return '3'
+  if (path === 'vitest.config.js') return '4'
+  if (path === '.gitignore') return '5'
+  if (path === 'LICENSE') return '6'
+  if (path === 'README.md') return '7'
+  return '9' + path
+}
+
+function buildTree(files: { path: string; content: string | null }[]): TreeNode[] {
+  const sorted = [...files].sort((a, b) => fileSortKey(a.path).localeCompare(fileSortKey(b.path)))
+  const root: TreeNode[] = []
+
+  for (const file of sorted) {
+    const parts = file.path.split('/')
+    let current = root
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      let folder = current.find((n): n is Extract<TreeNode, { type: 'folder' }> =>
+        n.type === 'folder' && n.name === parts[i]
+      )
+      if (!folder) {
+        folder = { type: 'folder', name: parts[i], children: [] }
+        current.push(folder)
+      }
+      current = folder.children
+    }
+
+    current.push({
+      type: 'file',
+      name: parts[parts.length - 1],
+      path: file.path,
+      isGenerating: file.content === null,
+    })
+  }
+
+  return root
+}
+
+function fileIcon(name: string) {
+  if (name.endsWith('.js') || name.endsWith('.ts')) return <FileCode size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
   return <FileText size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
 }
 
-const FILE_ORDER = ['src/index.js', 'package.json', 'rspack.config.js', '.gitignore', 'LICENSE', 'README.md']
+function TreeItems({
+  nodes,
+  depth,
+  selectedPath,
+  onSelect,
+}: {
+  nodes: TreeNode[]
+  depth: number
+  selectedPath: string
+  onSelect: (path: string) => void
+}) {
+  const indent = 14 + depth * 14
+
+  return (
+    <>
+      {nodes.map((node) => {
+        if (node.type === 'folder') {
+          return (
+            <div key={node.name}>
+              <div style={{
+                padding: `4px 14px 4px ${indent}px`,
+                display: 'flex', alignItems: 'center', gap: 5,
+                userSelect: 'none',
+              }}>
+                <ChevronRight size={10} style={{ color: '#ACA89F', flexShrink: 0 }} />
+                <Folder size={12} style={{ color: '#ACA89F', flexShrink: 0 }} />
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11.5,
+                  color: '#6E6A62',
+                  fontWeight: 600,
+                }}>
+                  {node.name}
+                </span>
+              </div>
+              <TreeItems
+                nodes={node.children}
+                depth={depth + 1}
+                selectedPath={selectedPath}
+                onSelect={onSelect}
+              />
+            </div>
+          )
+        }
+
+        const isSelected = node.path === selectedPath
+
+        return (
+          <button
+            key={node.path}
+            onClick={() => { if (!node.isGenerating) onSelect(node.path) }}
+            style={{
+              width: '100%', textAlign: 'left', border: 'none',
+              background: isSelected ? '#ECEAF9' : 'none',
+              cursor: node.isGenerating ? 'default' : 'pointer',
+              padding: `5px 14px 5px ${indent}px`,
+              display: 'flex', alignItems: 'center', gap: 7,
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected && !node.isGenerating)
+                (e.currentTarget as HTMLButtonElement).style.background = '#F5F4F2'
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected)
+                (e.currentTarget as HTMLButtonElement).style.background = 'none'
+            }}
+          >
+            {node.isGenerating
+              ? <Loader2 size={12} className="animate-spin" style={{ color: '#8B7FF0', flexShrink: 0 }} />
+              : fileIcon(node.name)
+            }
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11.5,
+              color: node.isGenerating ? '#ACA89F' : isSelected ? '#5B47D0' : '#3A3834',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {node.name}
+            </span>
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function langForPath(path: string): string {
   if (path.endsWith('.js')) return 'javascript'
   if (path.endsWith('.json')) return 'json'
   if (path.endsWith('.md')) return 'markdown'
+  if (path.endsWith('.html')) return 'html'
   return 'plaintext'
 }
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
 
 export default function ExportModal({ defaultName, initialMeta, libraryCode, examples, onClose, onExport }: Props) {
   const [name, setName] = useState(initialMeta?.name ?? defaultName)
@@ -93,13 +258,18 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
   const [step, setStep] = useState<'form' | 'preview' | 'success'>('form')
   const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([])
   const [readmeContent, setReadmeContent] = useState<string | null>(null)
+  const [testFiles, setTestFiles] = useState<PreviewFile[] | null>(null)
   const [selectedPath, setSelectedPath] = useState('package.json')
   const [exportStatus, setExportStatus] = useState<'idle' | 'exporting' | 'error'>('idle')
   const [exportPath, setExportPath] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
 
   const canNext = name.trim().length > 0
-  const readyToExport = readmeContent !== null && exportStatus !== 'exporting'
+  const hasTestsToGenerate = examples.some((e) => !!e.snapshotHtml)
+  const readyToExport =
+    readmeContent !== null &&
+    (!hasTestsToGenerate || testFiles !== null) &&
+    exportStatus !== 'exporting'
 
   const meta: ExportMeta = {
     name: name.trim(),
@@ -112,20 +282,26 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
 
   async function handleNext() {
     setStep('preview')
+    setPreviewFiles([])
     setReadmeContent(null)
+    setTestFiles(hasTestsToGenerate ? null : [])
     setSelectedPath('package.json')
 
     const syncFiles = await ipc.previewSync({ meta, libraryCode, examples })
     setPreviewFiles(syncFiles)
 
-    const readme = await ipc.generateReadme({ meta, examples })
-    setReadmeContent(readme)
+    ipc.generateReadme({ meta, examples }).then(setReadmeContent)
+
+    if (hasTestsToGenerate) {
+      ipc.generateTestFiles({ examples, packageName: meta.name }).then(setTestFiles)
+    }
   }
 
   async function handleExport() {
     if (!readyToExport) return
     setExportStatus('exporting')
-    const result = await onExport(meta, previewFiles, readmeContent ?? undefined)
+    const allFiles = [...previewFiles, ...(testFiles ?? [])]
+    const result = await onExport(meta, allFiles, readmeContent ?? undefined)
     if (result.ok && result.exportPath) {
       setExportPath(result.exportPath)
       setStep('success')
@@ -135,15 +311,24 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
     }
   }
 
-  const allPreviewFiles: (PreviewFile | { path: string; content: null })[] = [
+  const testPlaceholders = testFiles !== null
+    ? testFiles
+    : pendingTestPaths(examples).map((p) => ({ path: p, content: null }))
+
+  // Deduplicate by path — real content wins over placeholders.
+  // Guards against stale previewFiles containing paths that testPlaceholders also covers.
+  const seenPaths = new Set<string>()
+  const allPreviewFiles: { path: string; content: string | null }[] = [
     ...previewFiles,
+    ...testPlaceholders,
     { path: 'README.md', content: readmeContent },
-  ].sort((a, b) => {
-    const ai = FILE_ORDER.indexOf(a.path)
-    const bi = FILE_ORDER.indexOf(b.path)
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  ].filter(({ path }) => {
+    if (seenPaths.has(path)) return false
+    seenPaths.add(path)
+    return true
   })
 
+  const tree = buildTree(allPreviewFiles)
   const selectedFile = allPreviewFiles.find((f) => f.path === selectedPath)
 
   const packagePreviewLines = [
@@ -376,45 +561,12 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
                 overflowY: 'auto',
                 padding: '8px 0',
               }}>
-                {allPreviewFiles.map((file) => {
-                  const isGenerating = file.content === null
-                  const isSelected = file.path === selectedPath
-                  return (
-                    <button
-                      key={file.path}
-                      onClick={() => { if (!isGenerating) setSelectedPath(file.path) }}
-                      style={{
-                        width: '100%', textAlign: 'left', border: 'none',
-                        background: isSelected ? '#ECEAF9' : 'none',
-                        cursor: isGenerating ? 'default' : 'pointer',
-                        padding: '5px 14px',
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        transition: 'background 0.1s',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected && !isGenerating)
-                          (e.currentTarget as HTMLButtonElement).style.background = '#F5F4F2'
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected)
-                          (e.currentTarget as HTMLButtonElement).style.background = 'none'
-                      }}
-                    >
-                      {isGenerating
-                        ? <Loader2 size={12} className="animate-spin" style={{ color: '#8B7FF0', flexShrink: 0 }} />
-                        : fileIcon(file.path)
-                      }
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 12,
-                        color: isGenerating ? '#ACA89F' : isSelected ? '#5B47D0' : '#3A3834',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
-                        {file.path}
-                      </span>
-                    </button>
-                  )
-                })}
+                <TreeItems
+                  nodes={tree}
+                  depth={0}
+                  selectedPath={selectedPath}
+                  onSelect={setSelectedPath}
+                />
               </div>
 
               {/* Content viewer */}
@@ -476,10 +628,14 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
                 {exportStatus === 'error' && (
                   <span style={{ fontSize: 12, color: '#C0392B' }}>{errorMsg}</span>
                 )}
-                {readmeContent === null && exportStatus !== 'error' && (
+                {(readmeContent === null || (hasTestsToGenerate && testFiles === null)) && exportStatus !== 'error' && (
                   <span style={{ fontSize: 11.5, color: '#8A8780', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <Loader2 size={12} className="animate-spin" />
-                    Generating README…
+                    {readmeContent === null && hasTestsToGenerate && testFiles === null
+                      ? 'Generating README & tests…'
+                      : readmeContent === null
+                      ? 'Generating README…'
+                      : 'Generating tests…'}
                   </span>
                 )}
                 <button

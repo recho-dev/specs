@@ -23,6 +23,7 @@ export default function App() {
   const projectPath = useWorkbenchStore((s) => s.projectPath)
   const libraryCode = useWorkbenchStore((s) => s.library.code)
   const examples = useWorkbenchStore((s) => s.examples)
+  const snapshotBlobs = useWorkbenchStore((s) => s.snapshotBlobs)
   const exportMeta = useWorkbenchStore((s) => s.exportMeta)
   const setExportMeta = useWorkbenchStore((s) => s.setExportMeta)
   const buildProjectFile = useWorkbenchStore((s) => s.buildProjectFile)
@@ -55,7 +56,11 @@ export default function App() {
     const result = await ipc.invokeExport({
       meta,
       libraryCode,
-      examples: examples.map((e) => ({ name: e.name, code: e.code })),
+      examples: examples.map((e) => ({
+        name: e.name,
+        code: e.code,
+        snapshotHtml: e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId)?.html : undefined,
+      })),
       previewFiles,
       readmeContent,
     })
@@ -140,7 +145,11 @@ export default function App() {
           defaultName={defaultPackageName}
           initialMeta={exportMeta}
           libraryCode={libraryCode}
-          examples={examples.map((e) => ({ name: e.name, code: e.code }))}
+          examples={examples.map((e) => ({
+            name: e.name,
+            code: e.code,
+            snapshotHtml: e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId)?.html : undefined,
+          }))}
           onClose={() => setExportOpen(false)}
           onExport={handleExport}
         />

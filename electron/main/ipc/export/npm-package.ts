@@ -41,7 +41,11 @@ export function detectNamespace(examples: { name: string; code: string }[], pack
   return packageName.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())
 }
 
-export function buildPackageJson(meta: ExportMeta, dependencies: Record<string, string>): object {
+export function buildPackageJson(
+  meta: ExportMeta,
+  dependencies: Record<string, string>,
+  hasTests = false,
+): object {
   const pkg: Record<string, unknown> = {
     name: meta.name,
     version: meta.version || '1.0.0',
@@ -53,12 +57,14 @@ export function buildPackageJson(meta: ExportMeta, dependencies: Record<string, 
     files: ['src', 'dist'],
     scripts: {
       build: 'rm -rf dist && rspack build',
-      prepublishOnly: 'npm run build',
+      ...(hasTests ? { test: 'vitest run' } : {}),
+      prepublishOnly: hasTests ? 'npm test && npm run build' : 'npm run build',
     },
     license: meta.license || 'MIT',
     devDependencies: {
       '@rspack/cli': '^1.3.0',
       '@rspack/core': '^1.3.0',
+      ...(hasTests ? { vitest: '^3.0.0', jsdom: '^26.0.0' } : {}),
     },
   }
   if (Object.keys(dependencies).length > 0) pkg.dependencies = dependencies
