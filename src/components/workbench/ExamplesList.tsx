@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from "react";
 import type { RefObject } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Play } from "lucide-react";
+import { useWorkbenchStore } from "@/store/useWorkbenchStore";
+import type { CodeEditorHandle } from "../editor/CodeEditor";
 import {
   DndContext,
   closestCenter,
@@ -86,6 +88,7 @@ function SortableExampleCard(props: CardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const codeEditorRef = useRef<CodeEditorHandle>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -148,9 +151,34 @@ function SortableExampleCard(props: CardProps) {
               <DragHandleIcon />
             </span>
 
-            <span style={{ color: "#8B7FF0", flexShrink: 0, display: "flex", alignItems: "center" }}>
-              <FileIcon />
-            </span>
+            {isActive ? (
+              <button
+                title="Run example"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useWorkbenchStore.getState().requestRun(ex.id);
+                }}
+                style={{
+                  ...ICON_BTN,
+                  color: "#8B7FF0",
+                  width: 20, height: 20,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "#EBE9FF";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#5B47D0";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "none";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#8B7FF0";
+                }}
+              >
+                <Play size={13} fill="currentColor" />
+              </button>
+            ) : (
+              <span style={{ color: "#ACA89F", flexShrink: 0, display: "flex", alignItems: "center" }}>
+                <FileIcon />
+              </span>
+            )}
 
             {/* Name / rename input */}
             <div className="flex-1 min-w-0">
@@ -250,7 +278,7 @@ function SortableExampleCard(props: CardProps) {
 
           {/* Editor */}
           <div style={expanded ? undefined : { height: 0, overflow: "hidden" }}>
-            <CodeEditor value={ex.code} onChange={(v) => props.setExampleCode(ex.id, v)} editorBackground="#FDFCFA" autoHeight />
+            <CodeEditor ref={codeEditorRef} value={ex.code} onChange={(v) => props.setExampleCode(ex.id, v)} editorBackground="#FDFCFA" autoHeight />
           </div>
         </div>
 
@@ -331,6 +359,16 @@ function SortableExampleCard(props: CardProps) {
                     Delete Snapshot
                   </button>
                 )}
+
+                {/* Format */}
+                <button
+                  style={MENU_ITEM_BASE}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F5F4F2"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                  onClick={() => { codeEditorRef.current?.format(); setMenuOpen(false); }}
+                >
+                  Format
+                </button>
 
                 <div style={{ height: 1, background: "#EBE8E2", margin: "4px 0" }} />
 

@@ -83,6 +83,18 @@
         currentExampleId = exampleId;
         resetContainer();
 
+        // No library yet — run example directly with bare imports resolved via esm.sh
+        if (!libraryCode.trim()) {
+          var exampleBlob = new Blob([transformImports(exampleCode)], { type: 'text/javascript' });
+          var exampleUrl = URL.createObjectURL(exampleBlob);
+          try {
+            await import(exampleUrl);
+          } finally {
+            URL.revokeObjectURL(exampleUrl);
+          }
+          return;
+        }
+
         // 1. Transform bare imports → esm.sh URLs
         var transformed = transformImports(libraryCode);
 

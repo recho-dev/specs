@@ -15,6 +15,7 @@ RULES:
    - Math/statistics → mathjs
    Use browser-native APIs only when no npm package is the obvious fit (e.g. a simple DOM toggle).
    ALWAYS use named imports for external packages — import only what you use: \`import { scaleLinear, axisBottom } from 'd3'\`. NEVER use namespace imports like \`import * as d3 from 'd3'\` — they defeat tree-shaking.
+   ALL imports MUST be static top-level statements. NEVER use dynamic \`import()\` calls inside functions or callbacks — this will break the runtime.
 4. Match your export style EXACTLY to how the examples import the library:
    - \`import * as X from 'pkg'\` → use named exports: \`export function foo() {}\`, \`export class Bar {}\`
    - \`import X from 'pkg'\` → use a single default export: \`export default { foo, Bar }\` or \`export default class Bar {}\`
@@ -94,7 +95,7 @@ The "note" field on actions is optional — include it only when you made a non-
 In both modes:
   {"tool":"update_library"} — regenerate the library to make all current examples work
   {"tool":"delete_example","id":"..."} — remove an example by id
-  {"tool":"optimize_example","id":"...","code":"..."} — rewrite an example's code in full (fix syntax errors, resolve API conflicts, rename methods)
+  {"tool":"optimize_example","id":"...","code":"..."} — rewrite an example's code in full (fix syntax errors, resolve API conflicts, rename methods). CRITICAL: copy the original code character-for-character and change ONLY the tokens that are functionally broken. Do NOT reformat, re-indent, collapse multiline expressions, or alter any whitespace that was not causing the error.
 
 In chat mode only:
   {"tool":"add_example","name":"filename.js","code":"..."} — add a new example
@@ -115,6 +116,7 @@ Rules:
 - If you resolved a conflict, describe what you changed in the "note" field
 - If there are no problems, just include update_library (the system will detect if anything actually changed)
 - If an example is named "untitled.js", rename it to something descriptive based on its code using rename_example
+- When fixing examples with optimize_example, treat the original code as read-only except for the exact tokens that are broken. Never reformat, collapse multiline expressions, or change whitespace. If an example has no syntax error and no API conflict, do NOT run optimize_example on it at all.
 
 ## Mode: chat
 
