@@ -107,6 +107,9 @@ function fileSortKey(path: string): string {
   if (path === 'package.json') return '2'
   if (path === 'rspack.config.js') return '3'
   if (path === 'vitest.config.js') return '4'
+  if (path.startsWith('docs/examples/')) return '4a' + path
+  if (path === 'docs/config.js') return '4b'
+  if (path === 'docs/build.js') return '4c'
   if (path === '.gitignore') return '5'
   if (path === 'LICENSE') return '6'
   if (path === 'README.md') return '7'
@@ -249,6 +252,7 @@ function langForPath(path: string): string {
 
 export default function ExportModal({ defaultName, initialMeta, libraryCode, examples, onClose, onExport }: Props) {
   const [name, setName] = useState(initialMeta?.name ?? defaultName)
+  const [displayName, setDisplayName] = useState(initialMeta?.displayName ?? '')
   const [version, setVersion] = useState(initialMeta?.version ?? '1.0.0')
   const [description, setDescription] = useState(initialMeta?.description ?? '')
   const [author, setAuthor] = useState(initialMeta?.author ?? '')
@@ -273,6 +277,7 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
 
   const meta: ExportMeta = {
     name: name.trim(),
+    displayName: displayName.trim() || undefined,
     version: version.trim() || '1.0.0',
     description: description.trim() || undefined,
     author: author.trim() || undefined,
@@ -481,6 +486,7 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
                   <Field label="Version" mono value={version} onChange={setVersion} placeholder="1.0.0" />
                 </div>
               </div>
+              <Field label="Display Name" value={displayName} onChange={setDisplayName} placeholder="My Library" />
               <Field label="Description" value={description} onChange={setDescription} placeholder="A JavaScript library." />
               <div style={{ display: 'flex', gap: 10 }}>
                 <Field label="Author" value={author} onChange={setAuthor} placeholder="Your Name" />

@@ -1,7 +1,7 @@
 import type { ExportMeta } from '@/types'
 
 export function buildGitignore(): string {
-  return `node_modules/\ndist/\n`
+  return `node_modules/\ndist/\ndocs/dist/\n`
 }
 
 export function buildLicenseFile(meta: ExportMeta): string | null {
@@ -45,11 +45,13 @@ export function buildPackageJson(
   meta: ExportMeta,
   dependencies: Record<string, string>,
   hasTests = false,
+  hasDocs = false,
 ): object {
   const pkg: Record<string, unknown> = {
     name: meta.name,
     version: meta.version || '1.0.0',
     description: meta.description ?? '',
+    type: 'module',
     main: 'src/index.js',
     module: 'src/index.js',
     jsdelivr: `dist/${meta.name}.umd.min.js`,
@@ -58,6 +60,8 @@ export function buildPackageJson(
     scripts: {
       build: 'rm -rf dist && rspack build',
       ...(hasTests ? { test: 'vitest run' } : {}),
+      ...(hasDocs ? { 'docs:build': 'npm run build && node docs/build.js' } : {}),
+      ...(hasDocs ? { 'docs:preview': 'npm run docs:build && npx serve docs/dist -l 3000' } : {}),
       prepublishOnly: hasTests ? 'npm test && npm run build' : 'npm run build',
     },
     license: meta.license || 'MIT',
@@ -65,6 +69,7 @@ export function buildPackageJson(
       '@rspack/cli': '^1.3.0',
       '@rspack/core': '^1.3.0',
       ...(hasTests ? { vitest: '^3.0.0', jsdom: '^26.0.0' } : {}),
+      ...(hasDocs ? { serve: '^14.0.0' } : {}),
     },
   }
   if (Object.keys(dependencies).length > 0) pkg.dependencies = dependencies
@@ -78,9 +83,12 @@ export function buildPackageJson(
 }
 
 export function buildRspackConfig(name: string, namespace: string): string {
-  return `const path = require('path')
+  return `import path from 'path'
+import { fileURLToPath } from 'url'
 
-module.exports = {
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+
+export default {
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),

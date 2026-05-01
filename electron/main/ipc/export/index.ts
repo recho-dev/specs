@@ -6,6 +6,7 @@ import { detectDependencies, resolveDependencyVersions } from './deps'
 import { buildGitignore, buildLicenseFile, detectNamespace, buildPackageJson, buildRspackConfig } from './npm-package'
 import { generateReadme } from './readme'
 import { getTestFilePaths, buildTestFiles } from './test'
+import { buildDocsFiles } from './website'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -17,12 +18,14 @@ ipcMain.handle('project:preview-sync', async (_e, body: PreviewSyncRequest): Pro
   const namespace = detectNamespace(body.examples, body.meta.name)
   const dependencies = await resolveDependencyVersions(detectDependencies(body.libraryCode))
   const hasTests = getTestFilePaths(body.examples).length > 0
+  const hasDocs = body.examples.length > 0
 
   const files: PreviewFile[] = [
     { path: 'src/index.js', content: body.libraryCode },
-    { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests), null, 2) },
+    { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests, hasDocs), null, 2) },
     { path: 'rspack.config.js', content: buildRspackConfig(body.meta.name, namespace) },
     { path: '.gitignore', content: buildGitignore() },
+    ...buildDocsFiles(body.meta, body.examples, namespace),
   ]
 
   const license = buildLicenseFile(body.meta)
@@ -80,13 +83,15 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
         buildTestFiles(body.examples, body.meta.name),
       ])
       const hasTests = testFiles.length > 0
+      const hasDocs = body.examples.length > 0
 
       const allFiles: PreviewFile[] = [
         { path: 'src/index.js', content: body.libraryCode },
-        { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests), null, 2) },
+        { path: 'package.json', content: JSON.stringify(buildPackageJson(body.meta, dependencies, hasTests, hasDocs), null, 2) },
         { path: 'rspack.config.js', content: buildRspackConfig(body.meta.name, namespace) },
         { path: '.gitignore', content: buildGitignore() },
         ...testFiles,
+        ...buildDocsFiles(body.meta, body.examples, namespace),
       ]
       const licenseText = buildLicenseFile(body.meta)
       if (licenseText) allFiles.push({ path: 'LICENSE', content: licenseText })
