@@ -14,6 +14,7 @@ interface ElectronAPI {
   projectOpen: () => Promise<LoadedProject | null>
   projectOpenPath: (filePath: string) => Promise<LoadedProject | null>
   projectSave: (file: ProjectFile) => Promise<string | null>
+  projectSetDirty: (isDirty: boolean) => Promise<void>
   hasApiKey: () => Promise<boolean>
   setApiKey: (key: string) => Promise<void>
   validateApiKey: (key: string) => Promise<{ valid: true } | { valid: false; reason: string }>
@@ -38,6 +39,7 @@ export const ipc = {
   projectOpen: () => api().projectOpen(),
   projectOpenPath: (filePath: string) => api().projectOpenPath(filePath),
   projectSave: (file: ProjectFile) => api().projectSave(file),
+  projectSetDirty: (isDirty: boolean) => api().projectSetDirty(isDirty),
   hasApiKey: () => api().hasApiKey(),
   setApiKey: (key: string) => api().setApiKey(key),
   validateApiKey: (key: string) => api().validateApiKey(key),

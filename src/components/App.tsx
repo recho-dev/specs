@@ -60,7 +60,6 @@ export default function App() {
 
   async function handleExport(meta: ExportMeta, previewFiles?: import('@/types').PreviewFile[], readmeContent?: string) {
     setExportMeta(meta)
-    await ipc.projectSave(buildProjectFile()).catch(() => {})
 
     const result = await ipc.invokeExport({
       meta,

@@ -2,32 +2,15 @@ import { useEffect } from 'react'
 import { ipc } from '@/lib/ipc'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 
-function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
-  let timer: ReturnType<typeof setTimeout>
-  return ((...args: unknown[]) => {
-    clearTimeout(timer)
-    timer = setTimeout(() => fn(...args), ms)
-  }) as T
-}
-
 export default function ProjectManager() {
   const loadProject = useWorkbenchStore((s) => s.loadProject)
   const setProjectPath = useWorkbenchStore((s) => s.setProjectPath)
+  const markSaved = useWorkbenchStore((s) => s.markSaved)
+  const isDirty = useWorkbenchStore((s) => s.isDirty)
 
   useEffect(() => {
-    const debouncedSave = debounce(() => {
-      const state = useWorkbenchStore.getState()
-      if (!state.projectPath || state.library.isGenerating) return
-      ipc.projectSave(state.buildProjectFile()).catch(() => {})
-    }, 1500)
-
-    const unsub = useWorkbenchStore.subscribe((state) => {
-      if (!state.projectPath || state.library.isGenerating) return
-      debouncedSave()
-    })
-
-    return unsub
-  }, [])
+    ipc.projectSetDirty(isDirty).catch(() => {})
+  }, [isDirty])
 
   useEffect(() => {
     ipc.onMenu('new-project', async () => {
@@ -41,8 +24,12 @@ export default function ProjectManager() {
 
     ipc.onMenu('save-project', async () => {
       const state = useWorkbenchStore.getState()
-      const filePath = await ipc.projectSave(state.buildProjectFile())
-      if (filePath && !state.projectPath) setProjectPath(filePath)
+      const file = state.buildProjectFile()
+      const filePath = await ipc.projectSave(file)
+      if (filePath) {
+        if (!state.projectPath) setProjectPath(filePath)
+        markSaved()
+      }
     })
 
     return () => {
@@ -50,7 +37,7 @@ export default function ProjectManager() {
       ipc.offMenu('open-project')
       ipc.offMenu('save-project')
     }
-  }, [loadProject])
+  }, [loadProject, markSaved])
 
   return null
 }

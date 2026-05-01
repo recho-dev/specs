@@ -5,9 +5,31 @@ import type { LoadedProject, ProjectFile } from '@/types'
 
 let currentFilePath: string | null = null
 let mainWindow: BrowserWindow | null = null
+let isDirty = false
+let pendingClose = false
 
 export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
+  win.on('close', async (e) => {
+    if (!isDirty) return
+    e.preventDefault()
+    pendingClose = false
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Save', "Don't Save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+      message: 'Do you want to save your changes?',
+      detail: "Your changes will be lost if you don't save them.",
+    })
+    if (response === 0) {
+      pendingClose = true
+      win.webContents.send('menu:save-project')
+    } else if (response === 1) {
+      isDirty = false
+      win.close()
+    }
+  })
 }
 
 const RSPEC_FILTER = [{ name: 'Recho Specs Projects', extensions: ['rspec'] }]
@@ -79,4 +101,15 @@ ipcMain.handle('project:save', async (_e, file: ProjectFile): Promise<string | n
 
   await fs.writeFile(currentFilePath, JSON.stringify(file, null, 2), 'utf-8')
   return currentFilePath
+})
+
+ipcMain.handle('project:set-dirty', (_e, dirty: boolean) => {
+  isDirty = dirty
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setDocumentEdited(dirty)
+    if (!dirty && pendingClose) {
+      pendingClose = false
+      mainWindow.close()
+    }
+  }
 })
