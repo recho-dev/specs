@@ -64,7 +64,7 @@ interface WorkbenchStore {
   setToastState: (state: ToastState | null) => void
   setLastDiff: (diff: FileDiff[] | null) => void
 
-  setExampleSnapshot: (id: string, html: string) => Promise<void>
+  setExampleSnapshot: (id: string, html: string, thumbnailDataUrl?: string | null) => Promise<void>
   runSnapshotTest: (id: string, currentHtml: string) => void
   clearSnapshotStatus: (id: string) => void
   requestSnapshotCapture: (exampleId: string) => void
@@ -235,13 +235,14 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((s) => { s.lastDiff = diff })
     },
 
-    setExampleSnapshot: async (id, html) => {
+    setExampleSnapshot: async (id, html, thumbnailDataUrl?) => {
       set((s) => {
         let blob = s.snapshotBlobs.find((b) => b.html === html)
         if (!blob) {
           blob = { id: nanoid(), html }
           s.snapshotBlobs.push(blob)
         }
+        if (thumbnailDataUrl) blob.thumbnailDataUrl = thumbnailDataUrl
         const ex = s.examples.find((e) => e.id === id)
         if (ex) {
           ex.snapshotId = blob.id

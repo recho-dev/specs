@@ -4,6 +4,7 @@ export type SnapshotStatus = "none" | "pass" | "fail";
 export interface SnapshotBlob {
   id: string;
   html: string;
+  thumbnailDataUrl?: string;
 }
 
 export interface ConsoleLine {
@@ -50,6 +51,7 @@ export interface SnapshotResultMessage {
   type: "SNAPSHOT_RESULT";
   exampleId: string;
   html: string;
+  thumbnailDataUrl?: string | null;
 }
 
 export type SandboxInboundMessage = RunResultMessage | ConsoleMessage | SnapshotResultMessage;
@@ -90,7 +92,7 @@ export interface ExportMeta {
 export interface ExportRequestBody {
   meta: ExportMeta
   libraryCode: string
-  examples: { name: string; code: string; snapshotHtml?: string }[]
+  examples: { name: string; code: string; snapshotHtml?: string; thumbnailDataUrl?: string }[]
   previewFiles?: PreviewFile[]
   readmeContent?: string
 }

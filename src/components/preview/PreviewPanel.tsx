@@ -63,7 +63,7 @@ export default function PreviewPanel() {
         const mode = pendingSnapshots.current.get(msg.exampleId);
         pendingSnapshots.current.delete(msg.exampleId);
         if (mode === "capture") {
-          setExampleSnapshot(msg.exampleId, msg.html);
+          setExampleSnapshot(msg.exampleId, msg.html, msg.thumbnailDataUrl);
         } else if (mode === "compare") {
           runSnapshotTest(msg.exampleId, msg.html);
         }

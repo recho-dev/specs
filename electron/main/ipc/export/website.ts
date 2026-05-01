@@ -1,6 +1,6 @@
 import type { ExportMeta } from '@/types'
 
-function toSlug(name: string): string {
+export function toSlug(name: string): string {
   return (
     name
       .replace(/\.js$/, '')
@@ -205,11 +205,21 @@ const examples = readdirSync(exDir)
     const code = readFileSync(join(exDir, file), 'utf-8')
     const snapPath = join(__dirname, '..', 'test', 'output', slug + '.html')
     const snapshot = existsSync(snapPath) ? readFileSync(snapPath, 'utf-8') : null
-    return { slug, title: toTitle(slug), code, snapshot }
+    const thumbPath = join(__dirname, 'static', slug + '.png')
+    const hasThumbnail = existsSync(thumbPath)
+    return { slug, title: toTitle(slug), code, snapshot, hasThumbnail }
   })
 
 const distDir = join(__dirname, 'dist')
 mkdirSync(join(distDir, 'examples'), { recursive: true })
+
+const staticSrc = join(__dirname, 'static')
+if (existsSync(staticSrc)) {
+  mkdirSync(join(distDir, 'static'), { recursive: true })
+  for (const f of readdirSync(staticSrc)) {
+    copyFileSync(join(staticSrc, f), join(distDir, 'static', f))
+  }
+}
 
 copyFileSync(join(__dirname, 'runtime.js'), join(distDir, 'runtime.js'))
 
@@ -243,9 +253,11 @@ function indexHtml(config, examples) {
   ].filter(Boolean).join('')
 
   const cards = examples.map(ex => {
-    const preview = ex.snapshot
-      ? '<div class="cp"><iframe srcdoc="' + esc('<!doctype html><html><body style="margin:0;padding:8px">' + ex.snapshot + '</body></html>') + '" scrolling="no" tabindex="-1"></iframe></div>'
-      : '<div class="cp empty"></div>'
+    const preview = ex.hasThumbnail
+      ? '<div class="cp"><img src="./static/' + ex.slug + '.png" alt="' + esc(ex.title) + '"></div>'
+      : ex.snapshot
+        ? '<div class="cp"><iframe srcdoc="' + esc('<!doctype html><html><body style="margin:0;padding:8px">' + ex.snapshot + '</body></html>') + '" scrolling="no" tabindex="-1"></iframe></div>'
+        : '<div class="cp empty"></div>'
     return '<a class="card" href="examples/' + ex.slug + '.html">' + preview + '<div class="cn">' + esc(ex.title) + '</div></a>'
   }).join('')
 
@@ -256,11 +268,11 @@ function indexHtml(config, examples) {
     'header { background: #d5d4df }',
     '.hi { max-width: 960px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; height: 52px; gap: 12px }',
     '.logo { font-size: 14px; font-weight: 600; color: #111; text-decoration: none }',
-    '.logo:hover { color: #555 }',
+    '.logo:hover { text-decoration: underline }',
     '.hright { margin-left: auto; display: flex; align-items: center; gap: 16px }',
     '.ver { font-size: 13px; font-weight: 500; color: #444 }',
     '.gh { font-size: 13px; font-weight: 500; color: #444; text-decoration: none; white-space: nowrap }',
-    '.gh:hover { color: #111 }',
+    '.gh:hover { text-decoration: underline }',
     '.hero { background: #d5d4df; padding: 80px 0 72px }',
     '.hi2 { max-width: 960px; margin: 0 auto; padding: 0 32px }',
     '.hero h1 { font-size: clamp(48px,6vw,80px); font-weight: 800; color: #1a1a1a; letter-spacing: -.03em; line-height: 1.05; margin-bottom: 2px }',
@@ -271,11 +283,12 @@ function indexHtml(config, examples) {
     'hr { border: none; border-top: 1px solid #2e2f40; margin-bottom: 44px }',
     '.grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 28px 24px }',
     '.card { display: block; text-decoration: none; color: inherit }',
-    '.cp { background: #fff; border-radius: 6px; overflow: hidden; aspect-ratio: 4/3; position: relative }',
+    '.cp { background: #fff; border-radius: 6px; overflow: hidden; aspect-ratio: 8/5; position: relative }',
     '.cp iframe { width: 200%; height: 200%; transform: scale(.5); transform-origin: top left; border: none; pointer-events: none }',
+    '.cp img { width: 100%; height: 100%; object-fit: cover; display: block }',
     '.cp.empty { background: #282938 }',
     '.cn { margin-top: 10px; font-size: 13px; color: #aaa; line-height: 1.3 }',
-    '.card:hover .cn { color: #fff }',
+    '.card:hover .cn { text-decoration: underline }',
   ].join(' ')
 
   return [
@@ -319,9 +332,11 @@ function exampleHtml(config, examples, current) {
 
   const thumbs = examples.map(ex => {
     const active = ex.slug === current.slug ? ' active' : ''
-    const preview = ex.snapshot
-      ? '<div class="thumb-preview"><iframe srcdoc="' + esc('<!doctype html><html><body style="margin:0;padding:6px">' + ex.snapshot + '</body></html>') + '" scrolling="no" tabindex="-1"></iframe></div>'
-      : '<div class="thumb-preview empty"></div>'
+    const preview = ex.hasThumbnail
+      ? '<div class="thumb-preview"><img src="../static/' + ex.slug + '.png" alt="' + esc(ex.title) + '"></div>'
+      : ex.snapshot
+        ? '<div class="thumb-preview"><iframe srcdoc="' + esc('<!doctype html><html><body style="margin:0;padding:6px">' + ex.snapshot + '</body></html>') + '" scrolling="no" tabindex="-1"></iframe></div>'
+        : '<div class="thumb-preview empty"></div>'
     return '<a class="thumb-card' + active + '" href="' + ex.slug + '.html">' + preview + '<div class="thumb-label">' + esc(ex.title) + '</div></a>'
   }).join('')
 
@@ -331,19 +346,21 @@ function exampleHtml(config, examples, current) {
     'body { font-family: system-ui,-apple-system,sans-serif; display: flex; flex-direction: column; font-size: 13px }',
     'header { background: #1a1a1a; flex-shrink: 0; display: flex; align-items: center; height: 48px; padding: 0 20px; gap: 12px }',
     '.logo { font-size: 14px; font-weight: 600; color: #fff; text-decoration: none }',
-    '.logo:hover { color: #bbb }',
+    '.logo:hover { text-decoration: underline }',
     '.hright { margin-left: auto; display: flex; align-items: center; gap: 16px }',
-    '.ver { font-size: 13px; color: #888 }',
-    '.gh { font-size: 13px; color: #888; text-decoration: none; white-space: nowrap }',
-    '.gh:hover { color: #bbb }',
+    '.ver { font-size: 13px; color: #fff }',
+    '.gh { font-size: 13px; color: #fff; text-decoration: none; white-space: nowrap }',
+    '.gh:hover { text-decoration: underline }',
     '.workspace { flex: 1; display: flex; overflow: hidden }',
     'nav { width: 200px; flex-shrink: 0; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; overflow: hidden }',
     '.thumb-list { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1 }',
     '.thumb-card { display: block; text-decoration: none; color: inherit; border: 1px solid transparent; border-radius: 6px; overflow: hidden; transition: border-color .15s }',
     '.thumb-card:hover { border-color: #e0e0e0 }',
-    '.thumb-card.active { border-color: #b8b0f0; background: #f6f5ff }',
-    '.thumb-preview { height: 100px; background: #f7f7f7; overflow: hidden; position: relative }',
+    '.thumb-card:hover .thumb-label { text-decoration: underline }',
+    '.thumb-card.active { border-color: #b8b0f0 }',
+    '.thumb-preview { height: 100px; overflow: hidden; position: relative }',
     '.thumb-preview iframe { width: 200%; height: 200%; transform: scale(.5); transform-origin: top left; border: none; pointer-events: none }',
+    '.thumb-preview img { width: 100%; height: 100%; object-fit: cover; display: block }',
     '.thumb-preview.empty { background: #f0f0f0 }',
     '.thumb-label { padding: 5px 8px; font-size: 11px; font-weight: 500; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }',
     'main { flex: 1; display: flex; min-width: 0 }',

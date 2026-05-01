@@ -123,16 +123,86 @@
         await exampleFn(libModule);
       }
 
+      // Serialize an SVG element to a canvas via Blob URL — exact dimensions,
+      // no html2canvas SVG quirks.
+      function svgToCanvas(svgEl) {
+        return new Promise(function (resolve, reject) {
+          var rect = svgEl.getBoundingClientRect();
+          var w = Math.round(rect.width) || parseInt(svgEl.getAttribute('width'), 10) || 300;
+          var h = Math.round(rect.height) || parseInt(svgEl.getAttribute('height'), 10) || 200;
+          var clone = svgEl.cloneNode(true);
+          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          clone.setAttribute('width', w);
+          clone.setAttribute('height', h);
+          var svgStr = new XMLSerializer().serializeToString(clone);
+          var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          var img = new Image();
+          img.onload = function () {
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            resolve(canvas);
+          };
+          img.onerror = function () { URL.revokeObjectURL(url); reject(); };
+          img.src = url;
+        });
+      }
+
+      // Capture a 320×200 thumbnail, cover-cropped.
+      // Primary path: SVG serialization (reliable for chart libraries).
+      // Fallback: html2canvas for Canvas / DOM-based renderers.
+      async function captureSnapshot(exampleId) {
+        var container = document.getElementById('container') || document.createElement('div');
+        var html = container.innerHTML;
+        var thumbnailDataUrl = null;
+
+        try {
+          var srcCanvas = null;
+
+          var svgEl = container.querySelector('svg');
+          if (svgEl) {
+            srcCanvas = await svgToCanvas(svgEl);
+          }
+
+          if (!srcCanvas) {
+            var h2c = await import('https://esm.sh/html2canvas@1');
+            var prevMin = container.style.minHeight;
+            container.style.minHeight = '0';
+            srcCanvas = await h2c.default(container, { useCORS: true, allowTaint: true, logging: false, scale: 1 });
+            container.style.minHeight = prevMin;
+          }
+
+          var thumbW = 640, thumbH = 400;
+          var sw = srcCanvas.width, sh = srcCanvas.height;
+          if (sw > 0 && sh > 0) {
+            var thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = thumbW;
+            thumbCanvas.height = thumbH;
+            var ctx = thumbCanvas.getContext('2d');
+            var scale = Math.max(thumbW / sw, thumbH / sh);
+            var scaledW = sw * scale, scaledH = sh * scale;
+            var ox = (thumbW - scaledW) / 2, oy = (thumbH - scaledH) / 2;
+            ctx.drawImage(srcCanvas, ox, oy, scaledW, scaledH);
+            thumbnailDataUrl = thumbCanvas.toDataURL('image/png');
+          }
+        } catch (_) {}
+
+        window.parent.postMessage(
+          { type: 'SNAPSHOT_RESULT', exampleId: exampleId, html: html, thumbnailDataUrl: thumbnailDataUrl },
+          '*'
+        );
+      }
+
       // Message receiver
       window.addEventListener('message', function (event) {
         if (!event.data) return;
 
         if (event.data.type === 'GET_SNAPSHOT') {
-          var html = (document.getElementById('container') || { innerHTML: '' }).innerHTML;
-          window.parent.postMessage(
-            { type: 'SNAPSHOT_RESULT', exampleId: event.data.exampleId, html: html },
-            '*'
-          );
+          captureSnapshot(event.data.exampleId);
           return;
         }
 

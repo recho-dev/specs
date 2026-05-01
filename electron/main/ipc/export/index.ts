@@ -6,7 +6,20 @@ import { detectDependencies, resolveDependencyVersions } from './deps'
 import { buildGitignore, buildLicenseFile, detectNamespace, buildPackageJson, buildRspackConfig } from './npm-package'
 import { generateReadme } from './readme'
 import { getTestFilePaths, buildTestFiles } from './test'
-import { buildDocsFiles } from './website'
+import { buildDocsFiles, toSlug } from './website'
+
+async function writeThumbnails(
+  packageDir: string,
+  examples: { name: string; thumbnailDataUrl?: string }[],
+): Promise<void> {
+  for (const ex of examples) {
+    if (!ex.thumbnailDataUrl) continue
+    const base64 = ex.thumbnailDataUrl.replace(/^data:image\/\w+;base64,/, '')
+    const dest = join(packageDir, 'docs', 'static', toSlug(ex.name) + '.png')
+    await fs.mkdir(join(dest, '..'), { recursive: true })
+    await fs.writeFile(dest, Buffer.from(base64, 'base64'))
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -76,6 +89,7 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
         await fs.mkdir(join(dest, '..'), { recursive: true })
         await fs.writeFile(dest, file.content, 'utf-8')
       }
+      await writeThumbnails(packageDir, body.examples)
     } else {
       const namespace = detectNamespace(body.examples, body.meta.name)
       const [dependencies, testFiles] = await Promise.all([
@@ -101,6 +115,7 @@ ipcMain.handle('project:export', async (_e, body: ExportRequestBody): Promise<Ex
         await fs.mkdir(join(dest, '..'), { recursive: true })
         await fs.writeFile(dest, file.content, 'utf-8')
       }
+      await writeThumbnails(packageDir, body.examples)
     }
 
     const readme = body.readmeContent ?? await generateReadme(body.meta, body.examples)
