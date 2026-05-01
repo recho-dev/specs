@@ -10,7 +10,7 @@ export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
 }
 
-const RFORM_FILTER = [{ name: 'Recho Specs Projects', extensions: ['rform'] }]
+const RSPEC_FILTER = [{ name: 'Recho Specs Projects', extensions: ['rspec'] }]
 
 const EMPTY_PROJECT: ProjectFile = {
   examples: [],
@@ -22,7 +22,7 @@ const EMPTY_PROJECT: ProjectFile = {
 }
 
 function setTitle(filePath: string | null): void {
-  const name = filePath ? basename(filePath, '.rform') : 'Untitled'
+  const name = filePath ? basename(filePath, '.rspec') : 'Untitled'
   mainWindow?.setTitle(`Recho Specs — ${name}`)
 }
 
@@ -35,7 +35,7 @@ ipcMain.handle('project:new', (): LoadedProject => {
 ipcMain.handle('project:open', async (): Promise<LoadedProject | null> => {
   const result = await dialog.showOpenDialog({
     title: 'Open Project',
-    filters: RFORM_FILTER,
+    filters: RSPEC_FILTER,
     properties: ['openFile'],
   })
   if (result.canceled || !result.filePaths[0]) return null
@@ -68,8 +68,8 @@ ipcMain.handle('project:save', async (_e, file: ProjectFile): Promise<string | n
   if (!currentFilePath) {
     const result = await dialog.showSaveDialog({
       title: 'Save Project',
-      defaultPath: 'untitled.rform',
-      filters: RFORM_FILTER,
+      defaultPath: 'untitled.rspec',
+      filters: RSPEC_FILTER,
     })
     if (result.canceled || !result.filePath) return null
     currentFilePath = result.filePath

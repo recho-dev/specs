@@ -183,7 +183,7 @@ export default function Workbench() {
     setApiKeyRequested(false);
     setApiKeyStatus(null);
     setIsSaving(false);
-    setToastState({ kind: 'done', message: 'API key saved. Click Generate to get started.' });
+    setToastState({ kind: 'done', message: 'API key saved. Generate or chat to get started.' });
   }
 
   const ANIM_MS = 260;
