@@ -41,17 +41,23 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`)
   })
 
-  const win = createWindow()
-  Menu.setApplicationMenu(buildMenu(win))
+  async function setupWindow(win: BrowserWindow) {
+    Menu.setApplicationMenu(buildMenu(win))
+    const [{ setMainWindow: setProjectWindow }, { setMainWindow: setExportWindow }] = await Promise.all([
+      import('./ipc/project'),
+      import('./ipc/export'),
+    ])
+    setProjectWindow(win)
+    setExportWindow(win)
+  }
 
-  // Register IPC handlers (imported lazily to avoid circular deps at startup)
+  const win = createWindow()
   import('./ipc/settings').catch(() => {})
   import('./ipc/claude').catch(() => {})
-  import('./ipc/project').then(({ setMainWindow }) => setMainWindow(win)).catch(() => {})
-  import('./ipc/export').then(({ setMainWindow }) => setMainWindow(win)).catch(() => {})
+  setupWindow(win).catch(() => {})
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) setupWindow(createWindow()).catch(() => {})
   })
 })
 

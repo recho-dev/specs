@@ -22,8 +22,9 @@ const EMPTY_PROJECT: ProjectFile = {
 }
 
 function setTitle(filePath: string | null): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
   const name = filePath ? basename(filePath, '.rspec') : 'Untitled'
-  mainWindow?.setTitle(`Recho Specs — ${name}`)
+  mainWindow.setTitle(`Recho Specs — ${name}`)
 }
 
 ipcMain.handle('project:new', (): LoadedProject => {
