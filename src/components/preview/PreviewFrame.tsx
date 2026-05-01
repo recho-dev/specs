@@ -4,30 +4,25 @@ interface Props {
   exampleId: string;
   exampleCode: string;
   libraryCode: string;
-  generationId: number;
   isVisible: boolean;
 }
 
 export interface PreviewFrameHandle {
   sendGetSnapshot: (exampleId: string) => void;
+  run: () => void;
 }
 
 const PreviewFrame = forwardRef<PreviewFrameHandle, Props>(function PreviewFrame(
-  { exampleId, exampleCode, libraryCode, generationId, isVisible },
+  { exampleId, exampleCode, libraryCode, isVisible },
   ref
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
-  const pendingRef = useRef<{ libraryCode: string; exampleCode: string } | null>(null);
+  const latestRef = useRef({ libraryCode, exampleCode });
 
-  useImperativeHandle(ref, () => ({
-    sendGetSnapshot: (id: string) => {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "GET_SNAPSHOT", exampleId: id },
-        "*"
-      );
-    },
-  }));
+  useEffect(() => {
+    latestRef.current = { libraryCode, exampleCode };
+  }, [libraryCode, exampleCode]);
 
   function sendRunCode(lc: string, ec: string) {
     iframeRef.current?.contentWindow?.postMessage(
@@ -36,22 +31,22 @@ const PreviewFrame = forwardRef<PreviewFrameHandle, Props>(function PreviewFrame
     );
   }
 
+  useImperativeHandle(ref, () => ({
+    sendGetSnapshot: (id: string) => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "GET_SNAPSHOT", exampleId: id },
+        "*"
+      );
+    },
+    run: () => {
+      const { libraryCode: lc, exampleCode: ec } = latestRef.current;
+      if (readyRef.current) sendRunCode(lc, ec);
+    },
+  }));
+
   function handleLoad() {
     readyRef.current = true;
-    if (pendingRef.current) {
-      sendRunCode(pendingRef.current.libraryCode, pendingRef.current.exampleCode);
-      pendingRef.current = null;
-    }
   }
-
-  useEffect(() => {
-    if (!libraryCode.trim()) return;
-    if (readyRef.current) {
-      sendRunCode(libraryCode, exampleCode);
-    } else {
-      pendingRef.current = { libraryCode, exampleCode };
-    }
-  }, [libraryCode, exampleCode, generationId]);
 
   return (
     <iframe

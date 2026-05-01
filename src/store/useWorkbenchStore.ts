@@ -58,6 +58,7 @@ interface WorkbenchStore {
 
   snapshotBlobs: SnapshotBlob[]
   snapshotCapturePending: string | null
+  pendingRunId: string | null
 
   isDirty: boolean
   markSaved: () => void
@@ -82,6 +83,9 @@ interface WorkbenchStore {
   setExampleName: (id: string, name: string) => void
   setExampleStatus: (id: string, status: Example['status'], error?: string | null) => void
   appendConsoleLine: (id: string, line: ConsoleLine) => void
+  clearExampleConsole: (id: string) => void
+  requestRun: (id: string) => void
+  clearPendingRun: () => void
   setActiveExample: (id: string) => void
   reorderExamples: (orderedIds: string[]) => void
 
@@ -230,6 +234,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     lastDiff: null,
     snapshotBlobs: [],
     snapshotCapturePending: null,
+    pendingRunId: null,
 
     markSaved: () => {
       set((s) => { s.isDirty = false })
@@ -467,11 +472,31 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       })
     },
 
+    clearExampleConsole: (id) => {
+      set((state) => {
+        const ex = state.examples.find((e) => e.id === id)
+        if (ex) ex.consoleOutput = []
+      })
+    },
+
+    requestRun: (id) => {
+      set((state) => {
+        const ex = state.examples.find((e) => e.id === id)
+        if (ex) ex.consoleOutput = []
+        state.pendingRunId = id
+      })
+    },
+
+    clearPendingRun: () => {
+      set((state) => { state.pendingRunId = null })
+    },
+
     setActiveExample: (id) => {
       set((state) => {
         state.activeExampleId = id
         state.viewingLibrary = false
       })
+      get().requestRun(id)
     },
 
     reorderExamples: (orderedIds) => {
@@ -668,6 +693,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
             s.generationId += 1
             if (s.activeExampleId) s.viewingLibrary = false
           })
+          const activeId = get().activeExampleId
+          if (activeId) get().requestRun(activeId)
           resolve(true)
         })
 

@@ -78,9 +78,11 @@ ipcMain.handle('claude:chat', async (_e, body: ChatRequestBody): Promise<ChatPla
       messages: buildChatMessages(body),
     })
 
-    const text = response.content[0]?.type === 'text' ? response.content[0].text.trim() : ''
-    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-    return JSON.parse(cleaned) as ChatPlan
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    const jsonStr = start !== -1 && end > start ? text.slice(start, end + 1) : text.trim()
+    return JSON.parse(jsonStr) as ChatPlan
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     return { type: 'answer', text: `Something went wrong: ${msg}` }

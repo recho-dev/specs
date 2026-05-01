@@ -20,10 +20,11 @@ export default function PreviewPanel() {
   const activeExampleId = useWorkbenchStore((s) => s.activeExampleId);
   const viewingLibrary = useWorkbenchStore((s) => s.viewingLibrary);
   const libraryCode = useWorkbenchStore((s) => s.library.code);
-  const generationId = useWorkbenchStore((s) => s.generationId);
   const isGenerating = useWorkbenchStore((s) => s.library.isGenerating);
   const setExampleStatus = useWorkbenchStore((s) => s.setExampleStatus);
   const appendConsoleLine = useWorkbenchStore((s) => s.appendConsoleLine);
+  const pendingRunId = useWorkbenchStore((s) => s.pendingRunId);
+  const clearPendingRun = useWorkbenchStore((s) => s.clearPendingRun);
   const setExampleSnapshot = useWorkbenchStore((s) => s.setExampleSnapshot);
   const runSnapshotTest = useWorkbenchStore((s) => s.runSnapshotTest);
   const snapshotCapturePending = useWorkbenchStore((s) => s.snapshotCapturePending);
@@ -38,6 +39,12 @@ export default function PreviewPanel() {
     }
     return frameRefsMap.current.get(id)!;
   }
+
+  useEffect(() => {
+    if (!pendingRunId) return;
+    frameRefsMap.current.get(pendingRunId)?.current?.run();
+    clearPendingRun();
+  }, [pendingRunId, clearPendingRun]);
 
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleBtnHovered, setConsoleBtnHovered] = useState(false);
@@ -118,12 +125,11 @@ export default function PreviewPanel() {
     error: "Error",
   };
 
-  // Restore saved console state when a project is opened
+  // Restore saved console state when a project is opened (null = new untitled project)
   useEffect(() => {
-    if (!projectPath) return;
-    const layout = readPanelLayout(projectPath);
+    const layout = projectPath ? readPanelLayout(projectPath) : {};
     const t = setTimeout(() => {
-      if (layout.consoleOpen) {
+      if (layout.consoleOpen !== false) {
         consolePanelRef.current?.resize(`${layout.consoleSize ?? 30}`);
       }
     }, 0);
@@ -207,13 +213,7 @@ export default function PreviewPanel() {
               Preview will appear here
             </div>
           )}
-          {!libraryCode && examples.length > 0 && (
-            <div className="text-sm px-5 pt-5" style={{ color: "#ACA89F" }}>
-              Click Generate to build the library
-            </div>
-          )}
-          {libraryCode &&
-            // Sort by id for a stable DOM order. Drag-to-reorder changes array
+          {// Sort by id for a stable DOM order. Drag-to-reorder changes array
             // order but not ids, so iframes never move in the DOM (moving an
             // iframe causes the browser to reload it, blanking the preview).
             [...examples].sort((a, b) => (a.id < b.id ? -1 : 1)).map((ex) => (
@@ -223,7 +223,6 @@ export default function PreviewPanel() {
                 exampleId={ex.id}
                 exampleCode={ex.code}
                 libraryCode={libraryCode}
-                generationId={generationId}
                 isVisible={visibleId === ex.id}
               />
             ))}

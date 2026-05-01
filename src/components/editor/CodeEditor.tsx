@@ -1,10 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 type MonacoOnMount = NonNullable<React.ComponentProps<typeof MonacoEditor>['onMount']>
 type EditorInstance = Parameters<MonacoOnMount>[0]
 type MonacoInstance = Parameters<MonacoOnMount>[1]
+
+export interface CodeEditorHandle {
+  format: () => void
+}
 
 const THEME_CHROME = 'recho-specs-chrome'
 
@@ -35,7 +39,7 @@ interface Props {
   isStreaming?: boolean
 }
 
-export default function CodeEditor({
+const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEditor({
   value,
   onChange,
   readOnly = false,
@@ -44,10 +48,16 @@ export default function CodeEditor({
   fontSize = 14,
   autoHeight = false,
   isStreaming = false,
-}: Props) {
+}: Props, ref: React.Ref<CodeEditorHandle>) {
   const surfaceColor = editorBackground ?? '#ffffff'
   const [contentHeight, setContentHeight] = useState(100)
   const editorRef = useRef<EditorInstance | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    format: () => {
+      editorRef.current?.getAction('editor.action.formatDocument')?.run()
+    },
+  }))
 
   const beforeMount = useMemo(
     () => (monaco: MonacoInstance) => {
@@ -113,6 +123,8 @@ export default function CodeEditor({
             overviewRulerLanes: 0,
             contextmenu: false,
             folding: false,
+            tabSize: 2,
+            insertSpaces: true,
             stickyScroll: { enabled: false },
             fixedOverflowWidgets: true,
             scrollbar: {
@@ -124,4 +136,6 @@ export default function CodeEditor({
       </div>
     </Suspense>
   )
-}
+})
+
+export default CodeEditor

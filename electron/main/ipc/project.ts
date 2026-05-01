@@ -7,6 +7,7 @@ let currentFilePath: string | null = null
 let mainWindow: BrowserWindow | null = null
 let isDirty = false
 let pendingClose = false
+let pendingReload = false
 
 export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
@@ -110,6 +111,31 @@ ipcMain.handle('project:set-dirty', (_e, dirty: boolean) => {
     if (!dirty && pendingClose) {
       pendingClose = false
       mainWindow.close()
+    } else if (!dirty && pendingReload) {
+      pendingReload = false
+      mainWindow.webContents.reload()
     }
   }
 })
+
+export async function confirmAndReload(win: BrowserWindow): Promise<void> {
+  if (!isDirty) {
+    win.webContents.reload()
+    return
+  }
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    message: 'Do you want to save your changes?',
+    detail: "Your changes will be lost if you don't save them.",
+  })
+  if (response === 0) {
+    pendingReload = true
+    win.webContents.send('menu:save-project')
+  } else if (response === 1) {
+    isDirty = false
+    win.webContents.reload()
+  }
+}

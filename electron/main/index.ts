@@ -131,7 +131,14 @@ function buildMenu(win: BrowserWindow): Menu {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: async () => {
+            const { confirmAndReload } = await import('./ipc/project')
+            confirmAndReload(win)
+          }
+        },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
       ]
