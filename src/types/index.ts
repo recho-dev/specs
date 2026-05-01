@@ -79,6 +79,7 @@ export interface Version {
 
 export interface ExportMeta {
   name: string
+  displayName?: string
   version?: string
   description?: string
   author?: string
