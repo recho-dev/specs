@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ExportMeta, PreviewFile } from '@/types'
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Download, FileCode, FileText, Folder, Loader2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Download, FileCode, FileText, Folder, Image as ImageIcon, Loader2, X } from 'lucide-react'
 import { ipc } from '@/lib/ipc'
 import CodeEditor from './editor/CodeEditor'
 
@@ -8,7 +8,7 @@ interface Props {
   defaultName: string
   initialMeta: ExportMeta | null
   libraryCode: string
-  examples: { name: string; code: string; snapshotHtml?: string }[]
+  examples: { name: string; code: string; snapshotHtml?: string; thumbnailDataUrl?: string }[]
   onClose: () => void
   onExport: (meta: ExportMeta, previewFiles?: PreviewFile[], readmeContent?: string) => Promise<{ ok: boolean; exportPath?: string; error?: string }>
 }
@@ -108,6 +108,7 @@ function fileSortKey(path: string): string {
   if (path === 'rspack.config.js') return '3'
   if (path === 'vitest.config.js') return '4'
   if (path.startsWith('docs/examples/')) return '4a' + path
+  if (path.startsWith('docs/static/')) return '4ab' + path
   if (path === 'docs/config.js') return '4b'
   if (path === 'docs/build.js') return '4c'
   if (path === '.gitignore') return '5'
@@ -148,6 +149,7 @@ function buildTree(files: { path: string; content: string | null }[]): TreeNode[
 
 function fileIcon(name: string) {
   if (name.endsWith('.js') || name.endsWith('.ts')) return <FileCode size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
+  if (name.endsWith('.png') || name.endsWith('.jpg')) return <ImageIcon size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
   return <FileText size={12} style={{ color: '#8B7FF0', flexShrink: 0 }} />
 }
 
@@ -320,12 +322,17 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
     ? testFiles
     : pendingTestPaths(examples).map((p) => ({ path: p, content: null }))
 
+  const thumbnailFiles = examples
+    .filter((e) => e.thumbnailDataUrl)
+    .map((e) => ({ path: `docs/static/${slugify(e.name)}.png`, content: e.thumbnailDataUrl! }))
+
   // Deduplicate by path — real content wins over placeholders.
   // Guards against stale previewFiles containing paths that testPlaceholders also covers.
   const seenPaths = new Set<string>()
   const allPreviewFiles: { path: string; content: string | null }[] = [
     ...previewFiles,
     ...testPlaceholders,
+    ...thumbnailFiles,
     { path: 'README.md', content: readmeContent },
   ].filter(({ path }) => {
     if (seenPaths.has(path)) return false
@@ -588,13 +595,29 @@ export default function ExportModal({ defaultName, initialMeta, libraryCode, exa
                 </div>
                 <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                   {selectedFile?.content != null ? (
-                    <CodeEditor
-                      value={selectedFile.content}
-                      language={langForPath(selectedPath)}
-                      readOnly
-                      editorBackground="#FDFCFA"
-                      fontSize={12}
-                    />
+                    selectedPath.endsWith('.png') || selectedPath.endsWith('.jpg') ? (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', padding: 24,
+                        backgroundColor: '#d4d4d4',
+                        backgroundImage: 'linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%), linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%)',
+                        backgroundSize: '20px 20px',
+                        backgroundPosition: '0 0, 10px 10px',
+                      }}>
+                        <img
+                          src={selectedFile.content}
+                          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        />
+                      </div>
+                    ) : (
+                      <CodeEditor
+                        value={selectedFile.content}
+                        language={langForPath(selectedPath)}
+                        readOnly
+                        editorBackground="#FDFCFA"
+                        fontSize={12}
+                      />
+                    )
                   ) : (
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',

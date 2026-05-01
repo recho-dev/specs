@@ -65,11 +65,15 @@ export default function App() {
     const result = await ipc.invokeExport({
       meta,
       libraryCode,
-      examples: examples.map((e) => ({
-        name: e.name,
-        code: e.code,
-        snapshotHtml: e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId)?.html : undefined,
-      })),
+      examples: examples.map((e) => {
+        const blob = e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId) : undefined
+        return {
+          name: e.name,
+          code: e.code,
+          snapshotHtml: blob?.html,
+          thumbnailDataUrl: blob?.thumbnailDataUrl,
+        }
+      }),
       previewFiles,
       readmeContent,
     })
@@ -154,11 +158,15 @@ export default function App() {
           defaultName={defaultPackageName}
           initialMeta={exportMeta}
           libraryCode={libraryCode}
-          examples={examples.map((e) => ({
-            name: e.name,
-            code: e.code,
-            snapshotHtml: e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId)?.html : undefined,
-          }))}
+          examples={examples.map((e) => {
+            const blob = e.snapshotId ? snapshotBlobs.find((b) => b.id === e.snapshotId) : undefined
+            return {
+              name: e.name,
+              code: e.code,
+              snapshotHtml: blob?.html,
+              thumbnailDataUrl: blob?.thumbnailDataUrl,
+            }
+          })}
           onClose={() => setExportOpen(false)}
           onExport={handleExport}
         />
