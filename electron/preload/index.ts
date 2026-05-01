@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('project:open-path', filePath),
   projectSave: (file: ProjectFile): Promise<string | null> =>
     ipcRenderer.invoke('project:save', file),
+  projectSetDirty: (isDirty: boolean): Promise<void> =>
+    ipcRenderer.invoke('project:set-dirty', isDirty),
 
   // Settings
   hasApiKey: (): Promise<boolean> =>

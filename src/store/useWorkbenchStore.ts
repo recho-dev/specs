@@ -59,6 +59,9 @@ interface WorkbenchStore {
   snapshotBlobs: SnapshotBlob[]
   snapshotCapturePending: string | null
 
+  isDirty: boolean
+  markSaved: () => void
+
   exportMeta: ExportMeta | null
   setExportMeta: (meta: ExportMeta) => void
   setToastState: (state: ToastState | null) => void
@@ -208,6 +211,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
   immer((set, get) => ({
     projectPath: null,
     isProjectLoaded: false,
+    isDirty: false,
     examples: [],
     library: {
       code: '',
@@ -226,6 +230,10 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     lastDiff: null,
     snapshotBlobs: [],
     snapshotCapturePending: null,
+
+    markSaved: () => {
+      set((s) => { s.isDirty = false })
+    },
 
     setToastState: (state) => {
       set((s) => { s.toastState = state })
@@ -249,8 +257,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           ex.snapshotStatus = 'pass'
           ex.snapshotCurrentHtml = html
         }
+        s.isDirty = true
       })
-      await ipc.projectSave(get().buildProjectFile())
     },
 
     runSnapshotTest: (id, currentHtml) => {
@@ -287,8 +295,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           ex.snapshotStatus = 'none'
           ex.snapshotCurrentHtml = undefined
         }
+        s.isDirty = true
       })
-      await ipc.projectSave(get().buildProjectFile())
     },
 
     chatFromSnapshot: async (exampleId, snapshotHtml, currentHtml) => {
@@ -315,6 +323,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((s) => {
         s.projectPath = project.filePath
         s.isProjectLoaded = true
+        s.isDirty = false
         s.versions = file.versions
         s.activeVersionId = file.versions[0]?.id ?? null
         s.viewingLibrary = file.viewingLibrary
@@ -364,7 +373,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     },
 
     setExportMeta: (meta: ExportMeta) => {
-      set((s) => { s.exportMeta = meta })
+      set((s) => { s.exportMeta = meta; s.isDirty = true })
     },
 
     addExample: () => {
@@ -381,6 +390,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         })
         state.activeExampleId = id
         state.viewingLibrary = false
+        state.isDirty = true
       })
     },
 
@@ -400,6 +410,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         state.examples.splice(clamped, 0, next)
         state.activeExampleId = id
         state.viewingLibrary = false
+        state.isDirty = true
       })
     },
 
@@ -417,6 +428,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         if (state.examples.length === 0) {
           state.viewingLibrary = false
         }
+        state.isDirty = true
       })
     },
 
@@ -426,6 +438,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         if (ex) {
           ex.code = code
           ex.snapshotStatus = 'none'
+          state.isDirty = true
         }
       })
     },
@@ -433,7 +446,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     setExampleName: (id, name) => {
       set((state) => {
         const ex = state.examples.find((e) => e.id === id)
-        if (ex) ex.name = name
+        if (ex) { ex.name = name; state.isDirty = true }
       })
     },
 
@@ -468,6 +481,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           const e = map.get(id)
           return e ? [e] : []
         })
+        state.isDirty = true
       })
     },
 
@@ -475,6 +489,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       set((state) => {
         state.library.code = code
         state.library.streamBuffer = ''
+        state.isDirty = true
       })
     },
 
@@ -510,7 +525,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     _updateVersionDescription: (id, description) => {
       set((s) => {
         const v = s.versions.find((v) => v.id === id)
-        if (v) v.description = description
+        if (v) { v.description = description; s.isDirty = true }
       })
     },
 
@@ -539,9 +554,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.versions.unshift(newVersion)
         if (s.versions.length > MAX_VERSIONS) s.versions.splice(MAX_VERSIONS)
         s.activeVersionId = versionId
+        s.isDirty = true
       })
-
-      await ipc.projectSave(get().buildProjectFile())
 
       // Async: generate a richer version label (fire and forget — does not affect toast)
       ipc.invokeSummarize({
@@ -552,10 +566,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         currentExamples,
       })
         .then(({ description }) => {
-          if (description) {
-            get()._updateVersionDescription(versionId, description)
-            ipc.projectSave(get().buildProjectFile()).catch(() => {})
-          }
+          if (description) get()._updateVersionDescription(versionId, description)
         })
         .catch(() => {})
     },
@@ -598,9 +609,8 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         s.versions.unshift(restoreVersion)
         if (s.versions.length > MAX_VERSIONS) s.versions.splice(MAX_VERSIONS)
         s.activeVersionId = restoreId
+        s.isDirty = true
       })
-
-      await ipc.projectSave(get().buildProjectFile())
     },
 
     // Internal: streams library code from the generation model. Returns true on success.
