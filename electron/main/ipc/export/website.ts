@@ -158,6 +158,49 @@ const RUNTIME_JS = `(function () {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
   });
+
+  // Client-side navigation — swap example without reloading the page
+  if (typeof EXAMPLES !== 'undefined') {
+    // Strip .html from the initial URL on page load
+    if (location.pathname.endsWith('.html')) {
+      var cleanPath = location.pathname.slice(0, -5);
+      history.replaceState({ slug: cleanPath.split('/').pop() }, '', cleanPath);
+    }
+
+    function navigateTo(slug) {
+      var ex = null;
+      for (var i = 0; i < EXAMPLES.length; i++) {
+        if (EXAMPLES[i].slug === slug) { ex = EXAMPLES[i]; break; }
+      }
+      if (!ex) return;
+      editor.setValue(ex.code);
+      run();
+      document.title = ex.title + ' \\u2014 ' + NAME;
+      history.pushState({ slug: slug }, '', slug);
+      var cards = document.querySelectorAll('[data-slug]');
+      for (var j = 0; j < cards.length; j++) {
+        var card = cards[j];
+        if (card.getAttribute('data-slug') === slug) {
+          card.classList.add('active');
+          card.scrollIntoView({ block: 'nearest' });
+        } else {
+          card.classList.remove('active');
+        }
+      }
+    }
+
+    var thumbCards = document.querySelectorAll('[data-slug]');
+    for (var i = 0; i < thumbCards.length; i++) {
+      thumbCards[i].addEventListener('click', function (e) {
+        e.preventDefault();
+        navigateTo(this.getAttribute('data-slug'));
+      });
+    }
+
+    window.addEventListener('popstate', function (e) {
+      if (e.state && e.state.slug) navigateTo(e.state.slug);
+    });
+  }
 })();
 `
 
@@ -337,7 +380,7 @@ function exampleHtml(config, examples, current) {
       : ex.snapshot
         ? '<div class="thumb-preview"><iframe srcdoc="' + esc('<!doctype html><html><body style="margin:0;padding:6px">' + ex.snapshot + '</body></html>') + '" scrolling="no" tabindex="-1"></iframe></div>'
         : '<div class="thumb-preview empty"></div>'
-    return '<a class="thumb-card' + active + '" href="' + ex.slug + '.html">' + preview + '<div class="thumb-label">' + esc(ex.title) + '</div></a>'
+    return '<a class="thumb-card' + active + '" href="' + ex.slug + '.html" data-slug="' + ex.slug + '">' + preview + '<div class="thumb-label">' + esc(ex.title) + '</div></a>'
   }).join('')
 
   const css = [
@@ -352,8 +395,8 @@ function exampleHtml(config, examples, current) {
     '.gh { font-size: 13px; color: #fff; text-decoration: none; white-space: nowrap }',
     '.gh:hover { text-decoration: underline }',
     '.workspace { flex: 1; display: flex; overflow: hidden }',
-    'nav { width: 200px; flex-shrink: 0; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; overflow: hidden }',
-    '.thumb-list { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1 }',
+    'nav { width: 200px; flex-shrink: 0; border-right: 1px solid #e8e8e8; overflow-y: auto; }',
+    '.thumb-list { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; }',
     '.thumb-card { display: block; text-decoration: none; color: inherit; border: 1px solid transparent; border-radius: 6px; overflow: hidden; transition: border-color .15s }',
     '.thumb-card:hover { border-color: #e0e0e0 }',
     '.thumb-card:hover .thumb-label { text-decoration: underline }',
@@ -372,7 +415,8 @@ function exampleHtml(config, examples, current) {
     '#preview { flex: 1; border: none; background: #fff }',
   ].join(' ')
 
-  const dataScript = '<script>var CODE=' + safeJson(current.code) + ';var NAMESPACE=' + safeJson(config.namespace || '') + ';var NAME=' + safeJson(displayName) + ';<\\/script>'
+  const allExamples = examples.map(ex => ({ slug: ex.slug, title: ex.title, code: ex.code }))
+  const dataScript = '<script>var CODE=' + safeJson(current.code) + ';var NAMESPACE=' + safeJson(config.namespace || '') + ';var NAME=' + safeJson(displayName) + ';var EXAMPLES=' + safeJson(allExamples) + ';<\\/script>'
 
   return [
     '<!doctype html>',
