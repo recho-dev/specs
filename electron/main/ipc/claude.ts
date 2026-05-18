@@ -62,6 +62,24 @@ ipcMain.handle('claude:generate', async (event, body: GenerateRequestBody) => {
   }
 })
 
+function extractFirstJSON(text: string): string {
+  const start = text.indexOf('{')
+  if (start === -1) return text.trim()
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (escaped) { escaped = false; continue }
+    if (ch === '\\' && inString) { escaped = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '{') depth++
+    else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1) }
+  }
+  return text.trim()
+}
+
 ipcMain.handle('claude:chat', async (_e, body: ChatRequestBody): Promise<ChatPlan> => {
   const apiKey = await readApiKey()
   if (!apiKey) {
@@ -79,9 +97,7 @@ ipcMain.handle('claude:chat', async (_e, body: ChatRequestBody): Promise<ChatPla
     })
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    const jsonStr = start !== -1 && end > start ? text.slice(start, end + 1) : text.trim()
+    const jsonStr = extractFirstJSON(text)
     return JSON.parse(jsonStr) as ChatPlan
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'

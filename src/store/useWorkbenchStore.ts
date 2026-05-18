@@ -492,11 +492,12 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
     },
 
     setActiveExample: (id) => {
+      const alreadyActive = get().activeExampleId === id
       set((state) => {
         state.activeExampleId = id
         state.viewingLibrary = false
       })
-      get().requestRun(id)
+      if (!alreadyActive) get().requestRun(id)
     },
 
     reorderExamples: (orderedIds) => {
