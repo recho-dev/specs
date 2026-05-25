@@ -1,4 +1,4 @@
-# Recho Specs
+# WIP: Recho Specs
 
 Recho Specs is an AI-native programming interface for building JavaScript libraries from examples. Define your API with usage examples—the AI generates the implementation, runs them in a live preview, validates behavior with snapshot tests, and exports a production-ready npm package with Vitest tests and a docs site.
 
